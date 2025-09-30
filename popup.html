@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8"> 
+  <title>SmartInsight</title>
+  <style>
+    /* width 和 height */
+    body { 
+      width: 380px;  /* 扩大 */
+      height: 500px; /* 增加高度 */
+      padding: 15px; 
+      font-family: Arial, sans-serif; 
+    }
+    h3 { color: #4A90E2; }
+    #status-message { color: gray; margin-top: 10px; }
+    /* 滚动条 */
+    #summary-output {
+      max-height: 400px; /* 最大高度 */
+      overflow-y: auto;  /* 垂直滚动条 */
+      margin-top: 15px; 
+      border-top: 1px solid #eee; 
+      padding-top: 10px;
+    }
+  </style>
+</head>
+<body>
+  <h3>SmartInsight Assistant</h3>
+  <button id="summarize-button">Generate Summary</button> 
+  
+  <p id="status-message">Checking AI Support...</p>
+  
+  <div id="summary-output" style="margin-top: 15px; border-top: 1px solid #eee; padding-top: 10px;">
+    </div>
+  
+  <script src="popup.js"></script>
+</body>
+</html>

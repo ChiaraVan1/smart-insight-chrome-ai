@@ -1,0 +1,29 @@
+{
+  "manifest_version": 3,
+  "name": "SmartInsight",
+  "version": "1.0",
+  "description": "Summarize, narrate, and interact with webpages instantly with SmartInsight.",
+  
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage",
+    "tts"
+    // 移除 "ai" 权限，才能让扩展程序在当前 Chrome 版本中加载。
+  ],
+  
+
+  "host_permissions": [
+    "<all_urls>"
+  ],
+
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": "images/icon16.png"
+  }, 
+
+  "background": {
+    "service_worker": "background.js" 
+  }
+
+}
