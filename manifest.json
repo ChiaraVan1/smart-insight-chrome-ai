@@ -1,0 +1,56 @@
+{
+  "manifest_version": 3,
+  "name": "SmartInsight Career Assistant",
+  "version": "2.0.0",
+  "description": "AI-powered career assistant for LinkedIn profiles and company analysis. Prepare for interviews, networking, and job applications with intelligent insights.",
+  
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage",
+    "tts",
+    "tabs",
+    "notifications"
+  ],
+  
+  "host_permissions": [
+    "https://www.linkedin.com/*",
+    "https://api.anthropic.com/*",
+    "https://api.openai.com/*",
+    "https://api.moonshot.cn/*",
+    "https://newsapi.org/*",
+    "<all_urls>"
+  ],
+
+  "action": {
+    "default_popup": "popup.html"
+  }, 
+
+  "background": {
+    "service_worker": "background.js"
+  },
+
+  "content_scripts": [
+    {
+      "matches": ["https://www.linkedin.com/*"],
+      "js": ["content-script.js"],
+      "run_at": "document_end"
+    }
+  ],
+
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "src/storage/database.js",
+        "src/workflow/workflow-engine.js",
+        "src/workflow/predefined-workflows.js",
+        "src/ai/ai-manager.js",
+        "src/scrapers/company-scraper.js",
+        "src/ui/sidebar.js"
+      ],
+      "matches": ["<all_urls>"]
+    }
+  ],
+
+  "options_page": "options.html"
+}

@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>SmartInsight Career Assistant - 设置</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #4A90E2, #357ABD);
+            color: white;
+            padding: 30px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            margin: 0;
+            font-size: 28px;
+            font-weight: 600;
+        }
+        
+        .header p {
+            margin: 10px 0 0 0;
+            opacity: 0.9;
+            font-size: 16px;
+        }
+        
+        .section {
+            background: white;
+            border-radius: 8px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .section h2 {
+            margin: 0 0 20px 0;
+            color: #333;
+            font-size: 20px;
+            border-bottom: 2px solid #4A90E2;
+            padding-bottom: 10px;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #333;
+        }
+        
+        .form-group input, .form-group select, .form-group textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+        
+        .form-group input[type="password"] {
+            font-family: monospace;
+        }
+        
+        .form-group .help-text {
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+        }
+        
+        .btn {
+            background: #4A90E2;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: background 0.3s;
+        }
+        
+        .btn:hover {
+            background: #357ABD;
+        }
+        
+        .btn-secondary {
+            background: #6c757d;
+        }
+        
+        .btn-secondary:hover {
+            background: #545b62;
+        }
+        
+        .btn-danger {
+            background: #dc3545;
+        }
+        
+        .btn-danger:hover {
+            background: #c82333;
+        }
+        
+        .status-message {
+            padding: 12px;
+            border-radius: 4px;
+            margin: 15px 0;
+            display: none;
+        }
+        
+        .status-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .status-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .stat-card {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 24px;
+            font-weight: 600;
+            color: #4A90E2;
+        }
+        
+        .stat-label {
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+        }
+        
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 24px;
+        }
+        
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 24px;
+        }
+        
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        
+        input:checked + .slider {
+            background-color: #4A90E2;
+        }
+        
+        input:checked + .slider:before {
+            transform: translateX(26px);
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🎯 SmartInsight Career Assistant</h1>
+        <p>配置您的AI求职助手设置</p>
+    </div>
+
+    <div class="section">
+        <h2>🔑 API 配置</h2>
+        
+        <div class="form-group">
+            <label for="anthropic-key">Anthropic API Key (Claude)</label>
+            <input type="password" id="anthropic-key" placeholder="sk-ant-...">
+            <div class="help-text">
+                用于高质量的分析和对话生成。获取API Key: 
+                <a href="https://console.anthropic.com/" target="_blank">Anthropic Console</a>
+            </div>
+        </div>
+        
+        <div class="form-group">
+            <label for="kimi-key">Kimi API Key (推荐)</label>
+            <input type="password" id="kimi-key" placeholder="sk-...">
+            <div class="help-text">
+                月之暗面Kimi AI，性价比高。获取API Key: 
+                <a href="https://platform.moonshot.cn/" target="_blank">Kimi 开放平台</a>
+            </div>
+        </div>
+        
+        <div class="form-group">
+            <label for="openai-key">OpenAI API Key (备选)</label>
+            <input type="password" id="openai-key" placeholder="sk-...">
+            <div class="help-text">
+                备选AI服务。获取API Key: 
+                <a href="https://platform.openai.com/api-keys" target="_blank">OpenAI Platform</a>
+            </div>
+        </div>
+        
+        <div class="form-group">
+            <label for="news-api-key">News API Key (可选)</label>
+            <input type="password" id="news-api-key" placeholder="...">
+            <div class="help-text">
+                用于获取公司最新新闻。获取免费API Key: 
+                <a href="https://newsapi.org/" target="_blank">NewsAPI.org</a>
+            </div>
+        </div>
+        
+        <button class="btn" onclick="testConnection()">测试连接</button>
+    </div>
+
+    <div class="section">
+        <h2>⚙️ 性能设置</h2>
+        
+        <div class="form-group">
+            <label for="default-model">默认AI模型</label>
+            <select id="default-model">
+                <option value="kimi">Kimi 8K (推荐)</option>
+                <option value="kimi-32k">Kimi 32K (长文本)</option>
+                <option value="kimi-128k">Kimi 128K (超长文本)</option>
+                <option value="claude-sonnet">Claude Sonnet</option>
+                <option value="claude-haiku">Claude Haiku</option>
+                <option value="gpt-4">GPT-4</option>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label for="max-requests">最大并发请求数</label>
+            <select id="max-requests">
+                <option value="1">1 (保守)</option>
+                <option value="2">2 (平衡)</option>
+                <option value="3">3 (推荐)</option>
+                <option value="5">5 (激进)</option>
+            </select>
+            <div class="help-text">同时处理的AI请求数量，过高可能触发限流</div>
+        </div>
+        
+        <div class="form-group">
+            <label>
+                <span>启用缓存</span>
+                <label class="toggle-switch" style="float: right;">
+                    <input type="checkbox" id="enable-caching" checked>
+                    <span class="slider"></span>
+                </label>
+            </label>
+            <div class="help-text">缓存分析结果以节省成本和提高速度</div>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>💰 成本控制</h2>
+        
+        <div class="form-group">
+            <label for="daily-cost-limit">每日成本限制 (USD)</label>
+            <input type="number" id="daily-cost-limit" value="10.00" step="0.01" min="0">
+            <div class="help-text">达到限制后将暂停AI调用</div>
+        </div>
+        
+        <div class="form-group">
+            <label for="daily-request-limit">每日请求限制</label>
+            <input type="number" id="daily-request-limit" value="1000" min="1">
+            <div class="help-text">每日最大AI请求次数</div>
+        </div>
+        
+        <div class="stats-grid" id="cost-stats">
+            <div class="stat-card">
+                <div class="stat-value" id="today-cost">$0.00</div>
+                <div class="stat-label">今日花费</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="today-requests">0</div>
+                <div class="stat-label">今日请求</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="month-cost">$0.00</div>
+                <div class="stat-label">本月花费</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="cache-hit-rate">0%</div>
+                <div class="stat-label">缓存命中率</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>🗄️ 数据管理</h2>
+        
+        <div class="form-group">
+            <label>数据存储</label>
+            <div style="margin-top: 10px;">
+                <button class="btn btn-secondary" onclick="exportData()">导出数据</button>
+                <button class="btn btn-secondary" onclick="clearCache()" style="margin-left: 10px;">清空缓存</button>
+                <button class="btn btn-danger" onclick="clearAllData()" style="margin-left: 10px;">清空所有数据</button>
+            </div>
+            <div class="help-text">导出数据用于备份，清空数据将删除所有历史记录</div>
+        </div>
+        
+        <div class="form-group">
+            <label>
+                <span>隐私模式</span>
+                <label class="toggle-switch" style="float: right;">
+                    <input type="checkbox" id="privacy-mode">
+                    <span class="slider"></span>
+                </label>
+            </label>
+            <div class="help-text">启用后不会保存任何分析历史</div>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>🔧 高级设置</h2>
+        
+        <div class="form-group">
+            <label for="custom-prompts">自定义提示词模板</label>
+            <textarea id="custom-prompts" rows="4" placeholder="高级用户可以自定义AI提示词模板..."></textarea>
+            <div class="help-text">留空使用默认模板</div>
+        </div>
+        
+        <div class="form-group">
+            <label>
+                <span>开发者模式</span>
+                <label class="toggle-switch" style="float: right;">
+                    <input type="checkbox" id="developer-mode">
+                    <span class="slider"></span>
+                </label>
+            </label>
+            <div class="help-text">显示详细日志和性能指标</div>
+        </div>
+    </div>
+
+    <div style="text-align: center; margin-top: 30px;">
+        <button class="btn" onclick="saveSettings()" style="margin-right: 10px;">保存设置</button>
+        <button class="btn btn-secondary" onclick="resetSettings()" style="margin-right: 10px;">重置为默认</button>
+        <button class="btn" onclick="setupTestEnvironment()" style="background: #28a745;">🚀 一键配置测试</button>
+    </div>
+
+    <div id="status-message" class="status-message"></div>
+
+    <script src="options.js"></script>
+</body>
+</html>

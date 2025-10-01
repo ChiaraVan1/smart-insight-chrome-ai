@@ -1,0 +1,42 @@
+{
+  "name": "smart-insight-career-assistant",
+  "version": "2.0.0",
+  "description": "AI-powered career assistant for LinkedIn profiles and company analysis",
+  "main": "background.js",
+  "scripts": {
+    "build": "echo 'No build process required for Chrome extension'",
+    "test": "echo 'Tests not implemented yet'",
+    "lint": "eslint *.js src/**/*.js",
+    "format": "prettier --write *.js src/**/*.js",
+    "zip": "zip -r smart-insight-career-assistant.zip . -x node_modules/\\* .git/\\* *.zip"
+  },
+  "keywords": [
+    "chrome-extension",
+    "career",
+    "linkedin",
+    "ai",
+    "interview-prep",
+    "job-search",
+    "networking"
+  ],
+  "author": "SmartInsight Team",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-repo/smart-insight-chrome-ai.git"
+  },
+  "bugs": {
+    "url": "https://github.com/your-repo/smart-insight-chrome-ai/issues"
+  },
+  "homepage": "https://github.com/your-repo/smart-insight-chrome-ai#readme",
+  "devDependencies": {
+    "eslint": "^8.0.0",
+    "prettier": "^3.0.0"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "browserslist": [
+    "Chrome >= 88"
+  ]
+}
