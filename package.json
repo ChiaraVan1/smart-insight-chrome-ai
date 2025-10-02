@@ -1,23 +1,27 @@
 {
-  "name": "smart-insight-career-assistant",
-  "version": "2.0.0",
-  "description": "AI-powered career assistant for LinkedIn profiles and company analysis",
+  "name": "smart-insight-chrome-ai",
+  "version": "3.0.0",
+  "description": "🏆 Chrome Built-in AI powered career assistant. 100% private LinkedIn analysis with Gemini Nano. Zero cost, offline-capable, instant insights.",
   "main": "background.js",
   "scripts": {
     "build": "echo 'No build process required for Chrome extension'",
-    "test": "echo 'Tests not implemented yet'",
+    "test": "node test-chrome-ai.js",
     "lint": "eslint *.js src/**/*.js",
     "format": "prettier --write *.js src/**/*.js",
-    "zip": "zip -r smart-insight-career-assistant.zip . -x node_modules/\\* .git/\\* *.zip"
+    "zip": "zip -r smart-insight-chrome-ai-v3.zip . -x node_modules/\\* .git/\\* *.zip test-chrome-ai.js",
+    "demo": "open demo-comparison.html"
   },
   "keywords": [
     "chrome-extension",
-    "career",
-    "linkedin",
-    "ai",
-    "interview-prep",
+    "chrome-built-in-ai",
+    "gemini-nano",
+    "career-assistant",
+    "linkedin-analysis",
+    "privacy-first",
+    "offline-ai",
     "job-search",
-    "networking"
+    "interview-prep",
+    "chrome-ai-challenge-2025"
   ],
   "author": "SmartInsight Team",
   "license": "MIT",

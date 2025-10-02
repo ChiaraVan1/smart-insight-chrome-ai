@@ -1,11 +1,16 @@
-// popup.js - 求职助手扩展
+// popup.js - SmartInsight Chrome AI 求职助手
 
-// 1. 全局变量
+// Chrome AI 状态管理
+let chromeAIStatus = {
+    available: false,
+    modelReady: false,
+    capabilities: null
+};
+
+// UI 元素引用
 let summaryButton;
 let statusMessage;
 let outputDiv;
-
-// 新增求职助手相关变量
 let chatPrepButton;
 let chatPrepStatus;
 let chatPrepOutput;
@@ -16,7 +21,136 @@ let analyzeCurrentPageButton;
 
 
 // ==========================================================
-// A. 标签页切换功能
+// A. Chrome AI 初始化和状态检查
+// ==========================================================
+
+// 检查 Chrome AI 可用性
+async function checkChromeAIStatus() {
+    try {
+        // 发送消息到 background script 检查状态
+        const response = await chrome.runtime.sendMessage({
+            action: 'GET_STATS'
+        });
+        
+        if (response.status === 'SUCCESS') {
+            chromeAIStatus = {
+                available: true,
+                modelReady: response.data.aiManager?.modelStatus === 'ready',
+                capabilities: response.data.aiManager?.capabilities
+            };
+        } else {
+            chromeAIStatus.available = false;
+        }
+    } catch (error) {
+        console.error('Chrome AI 状态检查失败:', error);
+        chromeAIStatus.available = false;
+    }
+    
+    updateUIBasedOnStatus();
+}
+
+// 根据 Chrome AI 状态更新 UI
+function updateUIBasedOnStatus() {
+    if (!chromeAIStatus.available || !chromeAIStatus.modelReady) {
+        showChromeAISetupPrompt();
+    } else {
+        showChromeAIReadyStatus();
+    }
+}
+
+// 显示 Chrome AI 设置提示
+function showChromeAISetupPrompt() {
+    if (statusMessage) {
+        statusMessage.innerHTML = `
+            <div style="text-align: center; padding: 15px;">
+                <div style="font-size: 2em; margin-bottom: 10px;">🤖</div>
+                <div style="font-weight: 600; color: #4A90E2; margin-bottom: 8px;">
+                    Chrome AI 需要设置
+                </div>
+                <div style="font-size: 12px; color: #666; margin-bottom: 15px;">
+                    启用 Chrome 内置 AI 以使用完整功能
+                </div>
+                <button id="setup-chrome-ai" style="
+                    background: linear-gradient(135deg, #4A90E2, #357ABD);
+                    color: white;
+                    border: none;
+                    padding: 8px 16px;
+                    border-radius: 5px;
+                    cursor: pointer;
+                    font-size: 12px;
+                    font-weight: 600;
+                ">
+                    🚀 设置 Chrome AI
+                </button>
+            </div>
+        `;
+        
+        document.getElementById('setup-chrome-ai')?.addEventListener('click', openChromeAISetup);
+    }
+    
+    // 禁用功能按钮
+    disableFeatureButtons();
+}
+
+// 显示 Chrome AI 就绪状态
+function showChromeAIReadyStatus() {
+    if (statusMessage) {
+        statusMessage.innerHTML = `
+            <div style="text-align: center; padding: 10px;">
+                <span style="color: #28a745; font-weight: 600;">
+                    ✅ Chrome AI 已就绪
+                </span>
+                <div style="font-size: 11px; color: #666; margin-top: 5px;">
+                    🔒 隐私保护 | ⚡ 本地处理 | 💰 完全免费
+                </div>
+            </div>
+        `;
+        statusMessage.className = 'status-message success';
+    }
+    
+    // 启用功能按钮
+    enableFeatureButtons();
+}
+
+// 打开 Chrome AI 设置指导
+function openChromeAISetup() {
+    // 加载设置指导脚本
+    const script = document.createElement('script');
+    script.src = chrome.runtime.getURL('src/ui/chrome-ai-setup-guide.js');
+    script.onload = () => {
+        if (window.chromeAIGuide) {
+            window.chromeAIGuide.showSetupGuide();
+        }
+    };
+    document.head.appendChild(script);
+}
+
+// 禁用功能按钮
+function disableFeatureButtons() {
+    const buttons = [summaryButton, chatPrepButton, companyAnalysisButton, analyzeCurrentPageButton];
+    buttons.forEach(button => {
+        if (button) {
+            button.disabled = true;
+            button.style.opacity = '0.5';
+            button.title = '请先设置 Chrome AI';
+        }
+    });
+}
+
+// 启用功能按钮
+function enableFeatureButtons() {
+    const buttons = [summaryButton, chatPrepButton, companyAnalysisButton, analyzeCurrentPageButton];
+    buttons.forEach(button => {
+        if (button) {
+            button.disabled = false;
+            button.style.opacity = '1';
+            button.title = '';
+        }
+    });
+}
+
+// ==========================================================
+// B. 标签页切换功能
 // ==========================================================
 
 function initTabSwitching() {
@@ -727,47 +861,6 @@ function parseChatPrepContent(content) {
     return sections;
 }
 
-function parseCompanyAnalysisContent(content) {
-    const sections = {};
-    const lines = content.split('\n');
-    
-    let currentSection = '';
-    let currentContent = '';
-    
-    for (const line of lines) {
-        if (line.includes('定位')) {
-            if (currentSection) sections[currentSection] = currentContent.trim();
-            currentSection = 'positioning';
-            currentContent = '';
-        } else if (line.includes('时间线') || line.includes('大事')) {
-            if (currentSection) sections[currentSection] = currentContent.trim();
-            currentSection = 'timeline';
-            currentContent = '';
-        } else if (line.includes('关键人') || line.includes('技能')) {
-            if (currentSection) sections[currentSection] = currentContent.trim();
-            currentSection = 'keyPeople';
-            currentContent = '';
-        } else if (line.includes('竞争') || line.includes('亮点')) {
-            if (currentSection) sections[currentSection] = currentContent.trim();
-            currentSection = 'competition';
-            currentContent = '';
-        } else if (line.includes('面试') || line.includes('建议')) {
-            if (currentSection) sections[currentSection] = currentContent.trim();
-            currentSection = 'interviewTips';
-            currentContent = '';
-        } else {
-            currentContent += line + '\n';
-        }
-    }
-    
-    if (currentSection) sections[currentSection] = currentContent.trim();
-    
-    if (Object.keys(sections).length === 0) {
-        sections.positioning = content;
-    }
-    
-    return sections;
-}
 
 // 获取当前标签页URL
 async function getCurrentTabUrl() {
@@ -833,14 +926,12 @@ function init() {
         return;
     }
 
-    // 5. AI 功能检查
-    if ('Summarizer' in self) {
-        statusMessage.textContent = 'AI功能就绪';
-        summaryButton.disabled = false;
+    // 5. Chrome AI 状态检查和初始化
+    checkChromeAIStatus();
+    
+    // 绑定摘要功能（使用 Chrome AI）
+    if (summaryButton) {
         summaryButton.addEventListener('click', runSummaryWorkflow);
-    } else {
-        statusMessage.textContent = '❌ 浏览器不支持内置AI功能';
-        summaryButton.disabled = true;
     }
     
     // 6. 绑定求职助手功能事件

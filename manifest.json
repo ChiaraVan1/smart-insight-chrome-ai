@@ -1,31 +1,24 @@
 {
   "manifest_version": 3,
   "name": "SmartInsight Career Assistant",
-  "version": "2.0.0",
-  "description": "AI-powered career assistant for LinkedIn profiles and company analysis. Prepare for interviews, networking, and job applications with intelligent insights.",
-  
+  "version": "3.0.0",
+  "description": " Chrome Built-in AI powered career assistant. 100% private LinkedIn analysis with Gemini Nano. Zero cost, offline-capable, instant insights.",
+
   "permissions": [
     "activeTab",
     "scripting",
     "storage",
-    "tts",
-    "tabs",
+    "sidePanel",
     "notifications"
   ],
-  
+
   "host_permissions": [
-    "https://www.linkedin.com/*",
-    "https://api.anthropic.com/*",
-    "https://api.openai.com/*",
-    "https://api.moonshot.cn/*",
-    "https://newsapi.org/*",
-    "<all_urls>"
+    "https://www.linkedin.com/*"
   ],
 
   "action": {
     "default_popup": "popup.html"
   }, 
-
   "background": {
     "service_worker": "background.js"
   },
@@ -42,15 +35,15 @@
     {
       "resources": [
         "src/storage/database.js",
-        "src/workflow/workflow-engine.js",
-        "src/workflow/predefined-workflows.js",
-        "src/ai/ai-manager.js",
-        "src/scrapers/company-scraper.js",
-        "src/ui/sidebar.js"
+        "src/ai/chrome-ai-manager.js",
+        "src/ui/chrome-ai-setup-guide.js",
+        "demo-comparison.html"
       ],
       "matches": ["<all_urls>"]
     }
   ],
 
-  "options_page": "options.html"
+  "offline_enabled": true,
+
+  "minimum_chrome_version": "127"
 }
