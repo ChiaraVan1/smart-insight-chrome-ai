@@ -6,103 +6,199 @@ let chromeAIManager = null;
 let aiCapabilities = null;
 let modelStatus = 'checking';
 let database = null;
+let initializationPromise = null;
+let lastInitializationError = null;
+let lastNotifiedStatus = null;
+
+function getChromeAI() {
+    if (typeof self !== 'undefined' && self.ai) {
+        return self.ai;
+    }
+    if (typeof globalThis !== 'undefined' && globalThis.ai) {
+        return globalThis.ai;
+    }
+    return null;
+}
+
+function safeNotify(options) {
+    try {
+        if (chrome?.notifications?.create) {
+            chrome.notifications.create('', options);
+        }
+    } catch (error) {
+        console.warn('Notification creation failed:', error);
+    }
+}
 
 // 1. 初始化 Chrome AI 服务
-async function initializeServices() {
-    try {
-        console.log('🚀 初始化 SmartInsight Chrome AI 服务...');
-        
-        // 检查 Chrome AI 可用性
-        await checkChromeAIAvailability();
-        
-        // 初始化 Chrome AI Manager
-        await initializeChromeAI();
-        
-        // 初始化本地数据库
-        await initializeDatabase();
-        
-        console.log('✅ SmartInsight Chrome AI 服务初始化完成');
-        
-        // 显示成功通知
-        chrome.notifications.create({
-            type: 'basic',
-            title: 'SmartInsight 已就绪',
-            message: '🔒 隐私优先 | ⚡ 本地AI | 💰 完全免费'
-        });
-        
-    } catch (error) {
-        console.error('❌ Chrome AI 服务初始化失败:', error);
-        modelStatus = 'error';
-        
-        // 显示设置指导
-        chrome.notifications.create({
-            type: 'basic',
-            title: 'Chrome AI 需要设置',
-            message: '请启用 Chrome AI 功能以使用完整分析'
-        });
+async function initializeServices(force = false) {
+    if (initializationPromise && !force) {
+        return initializationPromise;
     }
+
+    if (!force && (modelStatus === 'ready' || modelStatus === 'partial' || modelStatus === 'downloading') && chromeAIManager && database) {
+        return Promise.resolve({ status: modelStatus });
+    }
+
+    initializationPromise = (async () => {
+        try {
+            console.log('🚀 初始化 SmartInsight Chrome AI 服务...');
+            modelStatus = 'initializing';
+            lastInitializationError = null;
+
+            // 检查 Chrome AI 可用性
+            const availability = await checkChromeAIAvailability();
+
+            // 初始化 Chrome AI Manager（如果可用）
+            await initializeChromeAI(availability);
+
+            // 初始化本地数据库
+            await initializeDatabase();
+
+            if ((modelStatus === 'ready' || modelStatus === 'partial') && lastNotifiedStatus !== 'ready') {
+                console.log('✅ SmartInsight Chrome AI 服务初始化完成');
+
+                safeNotify({
+                    type: 'basic',
+                    title: 'SmartInsight 已就绪',
+                    message: '🔒 隐私优先 | ⚡ 本地AI | 💰 完全免费'
+                });
+                lastNotifiedStatus = 'ready';
+            } else if (modelStatus === 'downloading' && lastNotifiedStatus !== 'downloading') {
+                safeNotify({
+                    type: 'basic',
+                    title: 'Gemini Nano 模型下载中',
+                    message: '首次使用需要下载本地模型，请稍候...'
+                });
+                lastNotifiedStatus = 'downloading';
+            } else if (modelStatus === 'unavailable' && lastNotifiedStatus !== 'unavailable') {
+                safeNotify({
+                    type: 'basic',
+                    title: 'Chrome AI 需要设置',
+                    message: '请按照设置指导启用 Chrome AI 功能'
+                });
+                lastNotifiedStatus = 'unavailable';
+            }
+
+            return { status: modelStatus, availability };
+        } catch (error) {
+            lastInitializationError = error;
+            console.error('❌ Chrome AI 服务初始化失败:', error);
+            modelStatus = 'error';
+            chromeAIManager = createUnavailableManager(error);
+
+            if (lastNotifiedStatus !== 'error') {
+                safeNotify({
+                    type: 'basic',
+                    title: 'Chrome AI 初始化失败',
+                    message: error.message || '请检查 Chrome AI 设置'
+                });
+                lastNotifiedStatus = 'error';
+            }
+
+            return { status: 'error', error };
+        }
+    })().finally(() => {
+        initializationPromise = null;
+    });
+
+    return initializationPromise;
 }
 
 // 检查 Chrome AI 可用性
 async function checkChromeAIAvailability() {
     console.log('🔍 检查 Chrome AI 可用性...');
-    
-    if (!self.ai) {
-        throw new Error('Chrome AI 不可用。请使用 Chrome 127+ 并启用相关功能。');
-    }
-    
-    // 检查各种 AI 能力
+
+    const chromeAI = getChromeAI();
+
+    // 初始化能力占位
     aiCapabilities = {
         prompt: null,
         summarizer: null,
         translator: null,
         writer: null
     };
-    
+
+    if (!chromeAI) {
+        modelStatus = 'unavailable';
+        return {
+            available: false,
+            reason: 'Chrome AI API 不可用',
+            prompt: null,
+            summarizer: null
+        };
+    }
+
+    const availability = { available: true, prompt: null, summarizer: null };
+
     try {
-        // 检查 Prompt API
-        if (self.ai.canCreateTextSession) {
-            aiCapabilities.prompt = await self.ai.canCreateTextSession();
+        if (chromeAI.canCreateTextSession) {
+            aiCapabilities.prompt = await chromeAI.canCreateTextSession();
+            availability.prompt = aiCapabilities.prompt;
             console.log('📝 Prompt API 状态:', aiCapabilities.prompt);
         }
-        
-        // 检查 Summarization API
-        if (self.ai.summarizer) {
-            aiCapabilities.summarizer = await self.ai.summarizer.capabilities();
+
+        if (chromeAI.summarizer) {
+            aiCapabilities.summarizer = await chromeAI.summarizer.capabilities();
+            availability.summarizer = aiCapabilities.summarizer?.available;
             console.log('📄 Summarizer API 状态:', aiCapabilities.summarizer);
         }
-        
-        modelStatus = aiCapabilities.prompt === 'readily' ? 'ready' : 'downloading';
-        
+
+        if (chromeAI.translator?.capabilities) {
+            aiCapabilities.translator = await chromeAI.translator.capabilities();
+        }
+
+        if (chromeAI.writer?.capabilities) {
+            aiCapabilities.writer = await chromeAI.writer.capabilities();
+        }
+
+        if (aiCapabilities.prompt === 'readily') {
+            modelStatus = 'ready';
+        } else if (aiCapabilities.prompt === 'after-download') {
+            modelStatus = 'downloading';
+        } else if (aiCapabilities.prompt) {
+            modelStatus = 'partial';
+        } else {
+            modelStatus = 'unavailable';
+        }
     } catch (error) {
         console.warn('部分 Chrome AI 功能不可用:', error);
-        modelStatus = 'partial';
+        modelStatus = modelStatus === 'checking' ? 'partial' : modelStatus;
+        availability.error = error;
     }
+
+    return availability;
 }
 
 // 初始化 Chrome AI Manager
-async function initializeChromeAI() {
+async function initializeChromeAI(availability) {
     try {
         console.log('🤖 初始化 Chrome AI Manager...');
-        
-        // 创建 Chrome AI Manager 实例
+
+        if (!availability?.available || modelStatus === 'unavailable') {
+            chromeAIManager = createUnavailableManager(
+                new Error('Chrome AI 不可用。请启用相关功能后重试。')
+            );
+            return;
+        }
+
+        if (aiCapabilities?.prompt === 'after-download') {
+            await maybeWarmUpPromptModel();
+        }
+
         chromeAIManager = {
-            // 分析 LinkedIn 个人资料
             analyzeProfile: async (profileData) => {
+                await ensurePromptReady();
                 return await analyzeProfileWithChromeAI(profileData);
             },
-            
-            // 分析公司信息
             analyzeCompany: async (companyData) => {
+                await ensurePromptReady();
                 return await analyzeCompanyWithChromeAI(companyData);
             },
-            
-            // 总结内容
             summarizeContent: async (content) => {
+                await ensurePromptReady();
                 return await summarizeWithChromeAI(content);
             },
-            
-            // 获取性能统计
             getStats: async () => {
                 return {
                     modelStatus,
@@ -110,16 +206,80 @@ async function initializeChromeAI() {
                     cost: 0,
                     privacy: '100% 本地处理',
                     latency: '<1秒',
-                    requests: 0
+                    requests: 0,
+                    lastError: lastInitializationError ? lastInitializationError.message : null
                 };
             }
         };
-        
+
         console.log('✅ Chrome AI Manager 初始化完成');
-        
     } catch (error) {
         console.error('❌ Chrome AI Manager 初始化失败:', error);
         throw error;
+    }
+}
+
+function createUnavailableManager(error) {
+    const guidance = getSetupGuidance();
+    const unavailableError = error || new Error('Chrome AI 不可用');
+
+    const buildFailureResponse = () => {
+        const err = new Error(
+            unavailableError?.message || 'Chrome AI 暂不可用，请按照设置指导启用相关功能。'
+        );
+        err.guidance = guidance;
+        return err;
+    };
+
+    return {
+        analyzeProfile: async () => { throw buildFailureResponse(); },
+        analyzeCompany: async () => { throw buildFailureResponse(); },
+        summarizeContent: async () => { throw buildFailureResponse(); },
+        getStats: async () => ({
+            modelStatus,
+            capabilities: aiCapabilities,
+            cost: 0,
+            privacy: '100% 本地处理',
+            guidance,
+            lastError: unavailableError?.message || null
+        })
+    };
+}
+
+async function maybeWarmUpPromptModel() {
+    const chromeAI = getChromeAI();
+    if (!chromeAI?.createTextSession) {
+        return;
+    }
+
+    try {
+        console.log('📥 触发 Gemini Nano 模型下载...');
+        const warmupSession = await chromeAI.createTextSession({ temperature: 0.5, topK: 1 });
+        await warmupSession.destroy();
+        aiCapabilities.prompt = 'readily';
+        modelStatus = 'ready';
+        console.log('✅ Gemini Nano 模型已就绪');
+    } catch (error) {
+        console.warn('Gemini Nano 模型仍在下载:', error.message);
+    }
+}
+
+async function ensurePromptReady() {
+    if (modelStatus === 'ready') {
+        return;
+    }
+
+    if (aiCapabilities?.prompt === 'after-download') {
+        await maybeWarmUpPromptModel();
+        if (aiCapabilities.prompt !== 'readily') {
+            throw new Error('Gemini Nano 模型仍在下载中，请稍后重试。');
+        }
+    }
+
+    if (modelStatus === 'unavailable') {
+        const err = new Error('Chrome AI 不可用，请按照设置指导启用相关功能。');
+        err.guidance = getSetupGuidance();
+        throw err;
     }
 }
 
@@ -185,26 +345,32 @@ async function analyzeCompanyWithChromeAI(companyData) {
 }
 
 async function summarizeWithChromeAI(content) {
+    const chromeAI = getChromeAI();
+
     try {
         console.log('📄 使用 Chrome AI 总结内容...');
-        
+
         // 优先使用 Summarization API
-        if (aiCapabilities.summarizer?.available === 'readily') {
-            const summarizer = await self.ai.summarizer.create({
+        if (aiCapabilities.summarizer?.available === 'readily' && chromeAI?.summarizer?.create) {
+            const summarizer = await chromeAI.summarizer.create({
                 type: 'key-points',
                 format: 'markdown',
                 length: 'medium'
             });
-            
+
             const result = await summarizer.summarize(content);
             await summarizer.destroy();
             return result;
         }
         
         // 降级到 Prompt API
-        const prompt = `请总结以下内容的关键要点，用简洁的中文表达：\n\n${content}`;
-        return await callChromeAIPrompt(prompt);
-        
+        if (chromeAI) {
+            const prompt = `请总结以下内容的关键要点，用简洁的中文表达：\n\n${content}`;
+            return await callChromeAIPrompt(prompt);
+        }
+
+        throw new Error('Chrome AI Summarizer 不可用。');
+
     } catch (error) {
         console.error('Chrome AI 内容总结失败:', error);
         throw new Error(`总结失败: ${error.message}`);
@@ -213,16 +379,18 @@ async function summarizeWithChromeAI(content) {
 
 // Chrome AI 核心调用函数
 async function callChromeAIPrompt(prompt) {
-    if (!self.ai || aiCapabilities.prompt !== 'readily') {
+    const chromeAI = getChromeAI();
+
+    if (!chromeAI || aiCapabilities.prompt !== 'readily') {
         throw new Error('Chrome AI Prompt API 不可用。请检查设置。');
     }
-    
+
     try {
-        const session = await self.ai.createTextSession({
+        const session = await chromeAI.createTextSession({
             temperature: 0.8,
             topK: 3
         });
-        
+
         const result = await session.prompt(prompt);
         await session.destroy();
         
@@ -282,40 +450,92 @@ function buildCompanyAnalysisPrompt(companyData) {
 
 // 初始化本地数据库
 async function initializeDatabase() {
+    if (database) {
+        return database;
+    }
+
     try {
         console.log('💾 初始化本地数据库...');
-        
+
+        const HISTORY_KEY = 'analysis_history';
+        const HISTORY_LIMIT = 50;
+
+        const loadAllStorage = async () => {
+            const result = await chrome.storage.local.get();
+            return result || {};
+        };
+
+        const loadHistory = async () => {
+            const result = await chrome.storage.local.get(HISTORY_KEY);
+            const history = result[HISTORY_KEY];
+            return Array.isArray(history) ? history : [];
+        };
+
         database = {
             saveProfile: async (profile) => {
                 const key = `profile_${Date.now()}`;
                 await chrome.storage.local.set({ [key]: profile });
                 console.log('✅ 个人资料已保存到本地');
             },
-            
+
             getProfile: async (url) => {
-                const result = await chrome.storage.local.get();
-                const profiles = Object.values(result).filter(item => 
-                    item.profile_url === url
+                const result = await loadAllStorage();
+                const profiles = Object.values(result).filter(item =>
+                    item?.profile_url === url
                 );
                 return profiles.length > 0 ? profiles[0] : null;
             },
-            
+
             saveCompany: async (company) => {
                 const key = `company_${Date.now()}`;
                 await chrome.storage.local.set({ [key]: company });
                 console.log('✅ 公司信息已保存到本地');
             },
-            
+
             getCompany: async (name) => {
-                const result = await chrome.storage.local.get();
-                const companies = Object.values(result).filter(item => 
-                    item.company_name === name
+                const result = await loadAllStorage();
+                const companies = Object.values(result).filter(item =>
+                    item?.company_name === name || item?.website_url === name
                 );
                 return companies.length > 0 ? companies[0] : null;
             },
-            
+
+            async saveHistoryEntry(entry) {
+                const history = await loadHistory();
+                const createdAt = entry?.created_at || Date.now();
+                const normalizedEntry = {
+                    id: entry?.id || `${entry?.type || 'analysis'}_${createdAt}`,
+                    type: entry?.type || 'analysis',
+                    created_at: createdAt,
+                    source: entry?.source || null,
+                    input: entry?.input || null,
+                    output: entry?.output || null,
+                    metadata: {
+                        ...entry?.metadata,
+                        ai_model: entry?.metadata?.ai_model || 'Gemini Nano (Chrome Built-in)',
+                        privacy: '100% 本地处理'
+                    }
+                };
+
+                const filteredHistory = history.filter(item => item.id !== normalizedEntry.id);
+                filteredHistory.unshift(normalizedEntry);
+                const trimmedHistory = filteredHistory.slice(0, HISTORY_LIMIT);
+
+                await chrome.storage.local.set({ [HISTORY_KEY]: trimmedHistory });
+                return normalizedEntry;
+            },
+
+            async getHistory(limit = 20) {
+                const history = await loadHistory();
+                return history.slice(0, limit);
+            },
+
+            async clearHistory() {
+                await chrome.storage.local.set({ [HISTORY_KEY]: [] });
+            },
+
             getCostSummary: async () => {
-                return { 
+                return {
                     totalCost: 0, // Chrome AI 完全免费
                     requestCount: 0,
                     privacy: '100% 本地处理'
@@ -324,7 +544,9 @@ async function initializeDatabase() {
         };
         
         console.log('✅ 本地数据库初始化完成');
-        
+
+        return database;
+
     } catch (error) {
         console.error('❌ 数据库初始化失败:', error);
     }
@@ -525,15 +747,23 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         case 'ANALYZE_WEBSITE':
             handleWebsiteAnalysis(request, sendResponse);
             break;
-            
+
         case 'GET_STATS':
             handleGetStats(request, sendResponse);
             break;
-            
+
         case 'GET_LINKEDIN_PROFILE_DATA':
             handleGetLinkedInProfileData(request, sendResponse);
             break;
-            
+
+        case 'GET_ANALYSIS_HISTORY':
+            handleGetAnalysisHistory(request, sendResponse);
+            break;
+
+        case 'CLEAR_ANALYSIS_HISTORY':
+            handleClearAnalysisHistory(request, sendResponse);
+            break;
+
         default:
             sendResponse({ status: 'ERROR', message: 'Unknown action: ' + request.action });
     }
@@ -543,9 +773,11 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
 // 处理摘要请求（使用 Chrome AI）
 async function handleSummaryRequest(request, sendResponse) {
+    await initializeServices();
+
     if (modelStatus !== 'ready' && modelStatus !== 'partial') {
-        sendResponse({ 
-            status: 'ERROR', 
+        sendResponse({
+            status: 'ERROR',
             message: 'Chrome AI 未就绪。请检查设置并重试。',
             guidance: getSetupGuidance()
         });
@@ -554,11 +786,27 @@ async function handleSummaryRequest(request, sendResponse) {
     
     try {
         console.log('📄 使用 Chrome AI 处理摘要请求...');
-        
+
         const summary = await chromeAIManager.summarizeContent(request.text);
-        
-        sendResponse({ 
-            status: 'SUCCESS', 
+
+        if (database?.saveHistoryEntry) {
+            await database.saveHistoryEntry({
+                type: 'summary',
+                source: request.context?.pageUrl || 'current_page',
+                input: {
+                    text_length: request.text?.length || 0,
+                    preview: request.text?.slice(0, 280) || ''
+                },
+                output: summary,
+                metadata: {
+                    task: 'RUN_SUMMARY',
+                    fromCache: false
+                }
+            });
+        }
+
+        sendResponse({
+            status: 'SUCCESS',
             output: summary,
             metadata: {
                 ai_model: 'Gemini Nano (Chrome Built-in)',
@@ -569,19 +817,28 @@ async function handleSummaryRequest(request, sendResponse) {
         
     } catch (error) {
         console.error('Chrome AI 摘要失败:', error);
-        sendResponse({ 
-            status: 'ERROR', 
+        sendResponse({
+            status: 'ERROR',
             message: error.message || 'Chrome AI 摘要失败',
-            suggestion: '请检查 Chrome AI 设置或尝试刷新页面'
+            suggestion: '请检查 Chrome AI 设置或尝试刷新页面',
+            guidance: error.guidance || getSetupGuidance()
         });
     }
 }
 
 // 处理个人资料分析（使用 Chrome AI）
 async function handleProfileAnalysis(request, sendResponse) {
+    await initializeServices();
+
     try {
         console.log('👤 使用 Chrome AI 处理个人资料分析...');
-        
+
+        if (modelStatus === 'unavailable' || modelStatus === 'error') {
+            const error = new Error('Chrome AI 未就绪，请先完成设置。');
+            error.guidance = getSetupGuidance();
+            throw error;
+        }
+
         if (!chromeAIManager) {
             throw new Error('Chrome AI Manager 未初始化');
         }
@@ -590,9 +847,27 @@ async function handleProfileAnalysis(request, sendResponse) {
         const cachedResult = await database?.getProfile(request.data.metadata?.profile_url);
         if (cachedResult && !request.forceRefresh) {
             console.log('📋 使用缓存的分析结果');
-            sendResponse({ 
-                status: 'SUCCESS', 
-                data: cachedResult.analyzed_data, 
+
+            if (database?.saveHistoryEntry) {
+                await database.saveHistoryEntry({
+                    type: 'profile',
+                    source: request.data.metadata?.profile_url || request.context?.pageUrl || null,
+                    input: {
+                        name: request.data.basic_info?.name || null,
+                        headline: request.data.basic_info?.headline || null
+                    },
+                    output: cachedResult.analyzed_data,
+                    metadata: {
+                        task: 'ANALYZE_PROFILE',
+                        fromCache: true,
+                        requested_at: request.context?.timestamp || Date.now()
+                    }
+                });
+            }
+
+            sendResponse({
+                status: 'SUCCESS',
+                data: cachedResult.analyzed_data,
                 fromCache: true,
                 metadata: {
                     source: '本地缓存',
@@ -614,6 +889,23 @@ async function handleProfileAnalysis(request, sendResponse) {
                 analyzed_at: Date.now()
             });
         }
+
+        if (database?.saveHistoryEntry) {
+            await database.saveHistoryEntry({
+                type: 'profile',
+                source: request.data.metadata?.profile_url || request.context?.pageUrl || null,
+                input: {
+                    name: request.data.basic_info?.name || null,
+                    headline: request.data.basic_info?.headline || null
+                },
+                output: result,
+                metadata: {
+                    task: 'ANALYZE_PROFILE',
+                    fromCache: false,
+                    requested_at: request.context?.timestamp || Date.now()
+                }
+            });
+        }
         
         sendResponse({ 
             status: 'SUCCESS', 
@@ -626,19 +918,28 @@ async function handleProfileAnalysis(request, sendResponse) {
         
     } catch (error) {
         console.error('Chrome AI 个人资料分析失败:', error);
-        sendResponse({ 
-            status: 'ERROR', 
+        sendResponse({
+            status: 'ERROR',
             message: error.message,
-            suggestion: '请检查 Chrome AI 设置或尝试刷新页面'
+            suggestion: '请检查 Chrome AI 设置或尝试刷新页面',
+            guidance: error.guidance || getSetupGuidance()
         });
     }
 }
 
 // 处理公司分析（使用 Chrome AI）
 async function handleCompanyAnalysis(request, sendResponse) {
+    await initializeServices();
+
     try {
         console.log('🏢 使用 Chrome AI 处理公司分析...');
-        
+
+        if (modelStatus === 'unavailable' || modelStatus === 'error') {
+            const error = new Error('Chrome AI 未就绪，请先完成设置。');
+            error.guidance = getSetupGuidance();
+            throw error;
+        }
+
         if (!chromeAIManager) {
             throw new Error('Chrome AI Manager 未初始化');
         }
@@ -648,9 +949,28 @@ async function handleCompanyAnalysis(request, sendResponse) {
         const cachedResult = await database?.getCompany(cacheKey);
         if (cachedResult && !request.forceRefresh) {
             console.log('📋 使用缓存的公司分析结果');
-            sendResponse({ 
-                status: 'SUCCESS', 
-                data: cachedResult.analyzed_data, 
+
+            if (database?.saveHistoryEntry) {
+                await database.saveHistoryEntry({
+                    type: 'company',
+                    source: cacheKey,
+                    input: {
+                        company: request.data.companyName || null,
+                        url: request.data.companyUrl || null
+                    },
+                    output: cachedResult.analyzed_data,
+                    metadata: {
+                        task: 'ANALYZE_COMPANY',
+                        fromCache: true,
+                        requested_at: request.context?.timestamp || Date.now(),
+                        trigger: request.initiatedBy || 'direct'
+                    }
+                });
+            }
+
+            sendResponse({
+                status: 'SUCCESS',
+                data: cachedResult.analyzed_data,
                 fromCache: true,
                 metadata: {
                     source: '本地缓存',
@@ -673,6 +993,24 @@ async function handleCompanyAnalysis(request, sendResponse) {
                 analyzed_at: Date.now()
             });
         }
+
+        if (database?.saveHistoryEntry) {
+            await database.saveHistoryEntry({
+                type: 'company',
+                source: cacheKey,
+                input: {
+                    company: request.data.companyName || null,
+                    url: request.data.companyUrl || null
+                },
+                output: result,
+                metadata: {
+                    task: 'ANALYZE_COMPANY',
+                    fromCache: false,
+                    requested_at: request.context?.timestamp || Date.now(),
+                    trigger: request.initiatedBy || 'direct'
+                }
+            });
+        }
         
         sendResponse({ 
             status: 'SUCCESS', 
@@ -685,16 +1023,19 @@ async function handleCompanyAnalysis(request, sendResponse) {
         
     } catch (error) {
         console.error('Chrome AI 公司分析失败:', error);
-        sendResponse({ 
-            status: 'ERROR', 
+        sendResponse({
+            status: 'ERROR',
             message: error.message,
-            suggestion: '请检查 Chrome AI 设置或尝试刷新页面'
+            suggestion: '请检查 Chrome AI 设置或尝试刷新页面',
+            guidance: error.guidance || getSetupGuidance()
         });
     }
 }
 
 // 处理网站分析
 async function handleWebsiteAnalysis(request, sendResponse) {
+    await initializeServices();
+
     try {
         // 使用公司分析工作流处理网站数据
         const companyData = {
@@ -702,18 +1043,67 @@ async function handleWebsiteAnalysis(request, sendResponse) {
             companyUrl: request.data.url,
             additionalInfo: request.data.content?.substring(0, 1000) // 限制长度
         };
-        
-        await handleCompanyAnalysis({ data: companyData, context: request.context }, sendResponse);
-        
+
+        await handleCompanyAnalysis({
+            data: companyData,
+            context: request.context,
+            initiatedBy: 'website'
+        }, sendResponse);
+
     } catch (error) {
         console.error('Website analysis failed:', error);
-        sendResponse({ status: 'ERROR', message: error.message });
+        sendResponse({
+            status: 'ERROR',
+            message: error.message,
+            guidance: error.guidance || getSetupGuidance()
+        });
+    }
+}
+
+
+// 获取分析历史
+async function handleGetAnalysisHistory(request, sendResponse) {
+    await initializeServices();
+
+    try {
+        if (!database?.getHistory) {
+            throw new Error('本地数据库未就绪');
+        }
+
+        const limit = typeof request.limit === 'number' ? request.limit : 20;
+        const history = await database.getHistory(limit);
+
+        sendResponse({ status: 'SUCCESS', data: history });
+
+    } catch (error) {
+        console.error('Failed to fetch analysis history:', error);
+        sendResponse({ status: 'ERROR', message: error.message || '历史记录获取失败' });
+    }
+}
+
+// 清理分析历史
+async function handleClearAnalysisHistory(request, sendResponse) {
+    await initializeServices();
+
+    try {
+        if (!database?.clearHistory) {
+            throw new Error('本地数据库未就绪');
+        }
+
+        await database.clearHistory();
+        sendResponse({ status: 'SUCCESS' });
+
+    } catch (error) {
+        console.error('Failed to clear analysis history:', error);
+        sendResponse({ status: 'ERROR', message: error.message || '清空历史记录失败' });
     }
 }
 
 
 // 获取统计信息
 async function handleGetStats(request, sendResponse) {
+    await initializeServices();
+
     try {
         const stats = {
             aiManager: chromeAIManager ? await chromeAIManager.getStats() : {
@@ -878,7 +1268,7 @@ function getSetupGuidance() {
 // 自动配置 Chrome AI 环境
 async function autoSetupTestEnvironment() {
     console.log('🚀 配置 Chrome AI 环境...');
-    
+
     const chromeAIConfig = {
         chrome_ai_enabled: true,
         privacy_mode: true,
@@ -894,31 +1284,32 @@ async function autoSetupTestEnvironment() {
         // 检查 Chrome AI 可用性
         setTimeout(async () => {
             try {
-                if (self.ai && self.ai.canCreateTextSession) {
-                    const capability = await self.ai.canCreateTextSession();
-                    
+                const chromeAI = getChromeAI();
+                if (chromeAI?.canCreateTextSession) {
+                    const capability = await chromeAI.canCreateTextSession();
+
                     if (capability === 'readily') {
                         console.log('✅ Chrome AI 已就绪!');
-                        
+
                         // 显示成功通知
-                        chrome.notifications.create({
+                        safeNotify({
                             type: 'basic',
                             title: 'SmartInsight Chrome AI 就绪',
                             message: '🔒 隐私优先 | ⚡ 本地AI | 💰 完全免费'
                         });
                     } else if (capability === 'after-download') {
                         console.log('📥 Gemini Nano 模型下载中...');
-                        
-                        chrome.notifications.create({
+
+                        safeNotify({
                             type: 'basic',
                             title: 'Chrome AI 模型下载中',
                             message: '请稍候，Gemini Nano 模型正在下载...'
                         });
                     } else {
                         console.log('❌ Chrome AI 不可用');
-                        
+
                         const guidance = getSetupGuidance();
-                        chrome.notifications.create({
+                        safeNotify({
                             type: 'basic',
                             title: 'Chrome AI 需要设置',
                             message: '请按照指导启用 Chrome AI 功能'
@@ -926,8 +1317,8 @@ async function autoSetupTestEnvironment() {
                     }
                 } else {
                     console.log('❌ Chrome AI API 不可用');
-                    
-                    chrome.notifications.create({
+
+                    safeNotify({
                         type: 'basic',
                         title: 'Chrome AI 不支持',
                         message: '请使用 Chrome 127+ 并启用相关功能'
