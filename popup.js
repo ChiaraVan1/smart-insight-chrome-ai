@@ -4,6 +4,7 @@
 let chromeAIStatus = {
     available: false,
     modelReady: false,
+    modelStatus: 'checking',
     capabilities: null
 };
 
@@ -31,35 +32,58 @@ async function checkChromeAIStatus() {
         const response = await chrome.runtime.sendMessage({
             action: 'GET_STATS'
         });
-        
+
         if (response.status === 'SUCCESS') {
             chromeAIStatus = {
                 available: true,
                 modelReady: response.data.aiManager?.modelStatus === 'ready',
+                modelStatus: response.data.aiManager?.modelStatus || 'unknown',
                 capabilities: response.data.aiManager?.capabilities
             };
         } else {
             chromeAIStatus.available = false;
+            chromeAIStatus.modelReady = false;
+            chromeAIStatus.modelStatus = 'error';
         }
     } catch (error) {
         console.error('Chrome AI 状态检查失败:', error);
         chromeAIStatus.available = false;
+        chromeAIStatus.modelReady = false;
+        chromeAIStatus.modelStatus = 'error';
     }
-    
+
     updateUIBasedOnStatus();
 }
 
 // 根据 Chrome AI 状态更新 UI
+// 结合后台返回的状态，给用户不同的界面提示：
+// - ready：告诉用户可以正常使用；
+// - preparing：解释为什么按钮是灰的，并给出 chrome:// 链接；
+// - error / unknown：引导用户去设置页排查。
 function updateUIBasedOnStatus() {
-    if (!chromeAIStatus.available || !chromeAIStatus.modelReady) {
+    if (!chromeAIStatus.available) {
         showChromeAISetupPrompt();
-    } else {
-        showChromeAIReadyStatus();
+        return;
+    }
+
+    switch (chromeAIStatus.modelStatus) {
+        case 'ready':
+            showChromeAIReadyStatus();
+            break;
+        case 'preparing':
+            showChromeAIPreparingStatus();
+            break;
+        case 'error':
+            showChromeAISetupPrompt('Chrome AI 模型加载失败，请检查是否启用了相关实验功能。');
+            break;
+        default:
+            showChromeAISetupPrompt('正在检查 Chrome AI 状态，请稍候...');
+            break;
     }
 }
 
 // 显示 Chrome AI 设置提示
-function showChromeAISetupPrompt() {
+function showChromeAISetupPrompt(description = '启用 Chrome 内置 AI 以使用完整功能') {
     if (statusMessage) {
         statusMessage.innerHTML = `
             <div style="text-align: center; padding: 15px;">
@@ -68,7 +92,7 @@ function showChromeAISetupPrompt() {
                     Chrome AI 需要设置
                 </div>
                 <div style="font-size: 12px; color: #666; margin-bottom: 15px;">
-                    启用 Chrome 内置 AI 以使用完整功能
+                    ${description}
                 </div>
                 <button id="setup-chrome-ai" style="
                     background: linear-gradient(135deg, #4A90E2, #357ABD);
@@ -84,12 +108,13 @@ function showChromeAISetupPrompt() {
                 </button>
             </div>
         `;
-        
+
         document.getElementById('setup-chrome-ai')?.addEventListener('click', openChromeAISetup);
+        statusMessage.className = 'status-message';
     }
-    
+
     // 禁用功能按钮
-    disableFeatureButtons();
+    disableFeatureButtons('请先设置 Chrome AI');
 }
 
 // 显示 Chrome AI 就绪状态
@@ -107,9 +132,30 @@ function showChromeAIReadyStatus() {
         `;
         statusMessage.className = 'status-message success';
     }
-    
+
     // 启用功能按钮
     enableFeatureButtons();
+}
+
+// 之前弹窗在模型下载阶段什么也不说，只显示失败。为了降低困惑，这里把真实的
+// 下载流程解释清楚，并提示可以去 on-device-internals 查看进度。
+function showChromeAIPreparingStatus() {
+    if (statusMessage) {
+        statusMessage.innerHTML = `
+            <div style="text-align: center; padding: 12px;">
+                <div style="font-size: 20px; margin-bottom: 8px;">📥</div>
+                <div style="font-weight: 600; color: #f39c12; margin-bottom: 6px;">
+                    Gemini Nano 模型正在下载
+                </div>
+                <div style="font-size: 12px; color: #8a6d3b; line-height: 1.5;">
+                    Chrome 正在后台准备本地 AI 模型。您可以在 <code>chrome://on-device-internals</code> 查看进度，完成后扩展会自动启用。
+                </div>
+            </div>
+        `;
+        statusMessage.className = 'status-message loading';
+    }
+
+    disableFeatureButtons('Gemini Nano 模型正在准备，请稍后重试');
 }
 
 // 打开 Chrome AI 设置指导
@@ -126,13 +172,13 @@ function openChromeAISetup() {
 }
 
 // 禁用功能按钮
-function disableFeatureButtons() {
+function disableFeatureButtons(tooltip = '') {
     const buttons = [summaryButton, chatPrepButton, companyAnalysisButton, analyzeCurrentPageButton];
     buttons.forEach(button => {
         if (button) {
             button.disabled = true;
             button.style.opacity = '0.5';
-            button.title = '请先设置 Chrome AI';
+            button.title = tooltip || '请先设置 Chrome AI';
         }
     });
 }

@@ -43,6 +43,13 @@ Chrome Extensions → Developer Mode → Load Unpacked
 2. **公司研究**：访问公司页面 → 获取面试策略
 3. **内容总结**：任意网页 → 智能提取要点
 
+> 💡 **提示：Gemini Nano 首次使用需要下载模型**
+>
+> - 如果弹窗提示“Gemini Nano 模型正在下载”，说明 Chrome 正在后台准备本地模型
+> - 可以在地址栏输入 `chrome://on-device-internals` 查看下载进度
+> - 下载完成后扩展会自动启用，无需再次配置；模型会缓存在本地，后续启动会直接显示“已就绪”
+> - 若长时间无进展，请确认已开启相关实验开关并重启浏览器
+
 ### 3️⃣ **查看演示**
 打开 `demo-comparison.html` 体验 Chrome AI vs 传统 AI 的巨大差异
 

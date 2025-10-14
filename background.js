@@ -7,6 +7,23 @@ let aiCapabilities = null;
 let modelStatus = 'checking';
 let database = null;
 
+const PROMPT_SESSION_OPTIONS = {
+    temperature: 0.8,
+    topK: 3
+};
+
+// Chrome 在下载或首次加载 Gemini Nano 时会返回一系列“准备中”状态。
+// 这些状态意味着模型仍在后台下载，若贸然调用 prompt API 会得到错误。
+// 我们将它们收集到一个集合里，便于统一判断并给出更友好的提示。
+const PREPARING_PROMPT_STATUSES = new Set([
+    'after-download',
+    'after-first-use',
+    'requires-download',
+    'requires-network'
+]);
+
+let promptInitializationPromise = null;
+
 // 1. 初始化 Chrome AI 服务
 async function initializeServices() {
     try {
@@ -14,26 +31,37 @@ async function initializeServices() {
         
         // 检查 Chrome AI 可用性
         await checkChromeAIAvailability();
-        
+
         // 初始化 Chrome AI Manager
         await initializeChromeAI();
-        
+
         // 初始化本地数据库
         await initializeDatabase();
-        
-        console.log('✅ SmartInsight Chrome AI 服务初始化完成');
-        
-        // 显示成功通知
-        chrome.notifications.create({
-            type: 'basic',
-            title: 'SmartInsight 已就绪',
-            message: '🔒 隐私优先 | ⚡ 本地AI | 💰 完全免费'
-        });
-        
+
+        const promptReady = await ensurePromptCapabilityReady();
+
+        if (promptReady) {
+            console.log('✅ SmartInsight Chrome AI 服务初始化完成');
+
+            // 显示成功通知
+            chrome.notifications.create({
+                type: 'basic',
+                title: 'SmartInsight 已就绪',
+                message: '🔒 隐私优先 | ⚡ 本地AI | 💰 完全免费'
+            });
+        } else {
+            console.log('⏳ Gemini Nano 模型仍在后台准备，将在完成后自动启用。');
+            chrome.notifications.create({
+                type: 'basic',
+                title: 'Chrome AI 模型下载中',
+                message: '请稍候，Gemini Nano 模型正在后台准备。完成后再试。'
+            });
+        }
+
     } catch (error) {
         console.error('❌ Chrome AI 服务初始化失败:', error);
         modelStatus = 'error';
-        
+
         // 显示设置指导
         chrome.notifications.create({
             type: 'basic',
@@ -58,25 +86,148 @@ async function checkChromeAIAvailability() {
         translator: null,
         writer: null
     };
-    
+
     try {
         // 检查 Prompt API
         if (self.ai.canCreateTextSession) {
             aiCapabilities.prompt = await self.ai.canCreateTextSession();
             console.log('📝 Prompt API 状态:', aiCapabilities.prompt);
+
+            if (aiCapabilities.prompt === 'readily') {
+                modelStatus = 'ready';
+            } else if (PREPARING_PROMPT_STATUSES.has(aiCapabilities.prompt)) {
+                modelStatus = 'preparing';
+                console.log('⏳ Gemini Nano 模型正在准备中，将继续检查状态...');
+            } else if (aiCapabilities.prompt) {
+                throw new Error(`Chrome AI Prompt API 不可用 (状态: ${aiCapabilities.prompt})。`);
+            } else {
+                throw new Error('Chrome AI Prompt API 不可用。请检查设置。');
+            }
         }
-        
+
         // 检查 Summarization API
         if (self.ai.summarizer) {
             aiCapabilities.summarizer = await self.ai.summarizer.capabilities();
             console.log('📄 Summarizer API 状态:', aiCapabilities.summarizer);
         }
-        
-        modelStatus = aiCapabilities.prompt === 'readily' ? 'ready' : 'downloading';
-        
+
     } catch (error) {
         console.warn('部分 Chrome AI 功能不可用:', error);
         modelStatus = 'partial';
+    }
+}
+
+function delay(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function isModelPreparingError(error) {
+    if (!error) return false;
+    const message = (error.message || String(error)).toLowerCase();
+    return message.includes('not ready') ||
+        message.includes('downloading') ||
+        message.includes('loading') ||
+        message.includes('missing') ||
+        message.includes('unavailable') ||
+        message.includes('model status');
+}
+
+// Gemini Nano 首次使用时需要几分钟下载。之前的代码没有处理，用户会立刻看到
+// “模型初始化失败”。这里通过指数退避重复尝试创建文本会话，以便在模型下载
+// 完成后自动恢复，同时避免在真正出错时无限等待。
+async function waitForModelDownload(maxAttempts = 8) {
+    let lastError = null;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        try {
+            const session = await self.ai.createTextSession(PROMPT_SESSION_OPTIONS);
+            await session.destroy();
+            console.log('✅ Gemini Nano 模型已就绪');
+            return true;
+        } catch (error) {
+            lastError = error;
+
+            if (!isModelPreparingError(error)) {
+                throw error;
+            }
+
+            const waitTime = Math.min(1000 * (2 ** attempt), 10000);
+            console.log(`⏳ Gemini Nano 模型准备中 (尝试 ${attempt}/${maxAttempts})，${waitTime}ms 后重试...`);
+            await delay(waitTime);
+
+            if (self.ai.canCreateTextSession) {
+                aiCapabilities.prompt = await self.ai.canCreateTextSession();
+            }
+        }
+    }
+
+    console.warn('Gemini Nano 模型仍在准备中，将稍后重试。', lastError);
+    return false;
+}
+
+// 所有依赖 Prompt API 的功能都会先调用此函数。它会：
+// 1. 询问 Chrome 当前的能力状态；
+// 2. 如果模型仍在下载，则进入 waitForModelDownload 轮询；
+// 3. 如果模型真正不可用，则直接抛出错误指导用户去设置。
+// 这样可以把“模型还没准备好”和“配置错误”区分开，让用户更容易理解。
+async function ensurePromptCapabilityReady() {
+    if (aiCapabilities?.prompt === 'readily' && modelStatus === 'ready') {
+        // 走到这里说明 Chrome 在上次启动时已经成功缓存了 Gemini Nano，
+        // canCreateTextSession 会立即返回 "readily"。我们直接放行，后续
+        // callChromeAIPrompt -> self.ai.createTextSession 会复用这个本地缓存
+        // 的模型文件，不需要重新下载。
+        return true;
+    }
+
+    if (promptInitializationPromise) {
+        return promptInitializationPromise;
+    }
+
+    promptInitializationPromise = (async () => {
+        if (!self.ai || !self.ai.canCreateTextSession) {
+            throw new Error('Chrome AI Prompt API 不可用。请确保已启用相关实验功能。');
+        }
+
+        if (!aiCapabilities) {
+            aiCapabilities = {
+                prompt: null,
+                summarizer: null,
+                translator: null,
+                writer: null
+            };
+        }
+
+        aiCapabilities.prompt = await self.ai.canCreateTextSession();
+
+        if (aiCapabilities.prompt === 'readily') {
+            modelStatus = 'ready';
+            // 如果本地设备曾经成功下载过 Gemini Nano，Chrome 会缓存模型，
+            // 再次启动时直接返回 "readily"。此时无需等待下载，可立即使用。
+            return true;
+        }
+
+        if (!PREPARING_PROMPT_STATUSES.has(aiCapabilities.prompt)) {
+            throw new Error(`Chrome AI Prompt API 不可用 (状态: ${aiCapabilities.prompt || 'unknown'})。`);
+        }
+
+        modelStatus = 'preparing';
+        console.log('⏳ 等待 Gemini Nano 模型下载完成...');
+
+        const ready = await waitForModelDownload();
+
+        if (ready) {
+            aiCapabilities.prompt = 'readily';
+            modelStatus = 'ready';
+            return true;
+        }
+
+        return false;
+    })();
+
+    try {
+        return await promptInitializationPromise;
+    } finally {
+        promptInitializationPromise = null;
     }
 }
 
@@ -187,7 +338,7 @@ async function analyzeCompanyWithChromeAI(companyData) {
 async function summarizeWithChromeAI(content) {
     try {
         console.log('📄 使用 Chrome AI 总结内容...');
-        
+
         // 优先使用 Summarization API
         if (aiCapabilities.summarizer?.available === 'readily') {
             const summarizer = await self.ai.summarizer.create({
@@ -213,19 +364,26 @@ async function summarizeWithChromeAI(content) {
 
 // Chrome AI 核心调用函数
 async function callChromeAIPrompt(prompt) {
-    if (!self.ai || aiCapabilities.prompt !== 'readily') {
+    if (!self.ai) {
         throw new Error('Chrome AI Prompt API 不可用。请检查设置。');
     }
-    
+
     try {
-        const session = await self.ai.createTextSession({
-            temperature: 0.8,
-            topK: 3
-        });
-        
+        const promptReady = await ensurePromptCapabilityReady();
+
+        if (!promptReady) {
+            // 到这里说明 waitForModelDownload 还没检测到模型就绪，继续向前只会得到
+            // “model not ready” 异常，因此直接给前端一个明确的下载提示。
+            throw new Error('Gemini Nano 模型仍在下载，请稍后再试。可在 chrome://on-device-internals 查看进度。');
+        }
+
+        // createTextSession 会自动选择本地缓存的 Gemini Nano 模型，如果 Chrome
+        // 已经完成下载就直接复用，不会再次触发网络请求。
+        const session = await self.ai.createTextSession(PROMPT_SESSION_OPTIONS);
+
         const result = await session.prompt(prompt);
         await session.destroy();
-        
+
         return result;
         
     } catch (error) {
@@ -543,15 +701,27 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
 // 处理摘要请求（使用 Chrome AI）
 async function handleSummaryRequest(request, sendResponse) {
-    if (modelStatus !== 'ready' && modelStatus !== 'partial') {
-        sendResponse({ 
-            status: 'ERROR', 
-            message: 'Chrome AI 未就绪。请检查设置并重试。',
+    try {
+        const promptReady = await ensurePromptCapabilityReady();
+
+        if (!promptReady) {
+            sendResponse({
+                status: 'ERROR',
+                message: 'Gemini Nano 模型仍在下载，请稍后重试。',
+                guidance: getSetupGuidance()
+            });
+            return;
+        }
+    } catch (error) {
+        console.error('Chrome AI readiness check failed:', error);
+        sendResponse({
+            status: 'ERROR',
+            message: error.message || 'Chrome AI 未就绪。',
             guidance: getSetupGuidance()
         });
         return;
     }
-    
+
     try {
         console.log('📄 使用 Chrome AI 处理摘要请求...');
         
