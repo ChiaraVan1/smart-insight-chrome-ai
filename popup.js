@@ -1,9 +1,17 @@
 // popup.js - SmartInsight Chrome AI 求职助手
 
+// ---- 改：helpers: 统一从响应里取文本 ----
+function getOutput(resp) {
+  if (!resp) return '';
+  if (typeof resp === 'string') return resp;
+  return resp.output ?? resp.data ?? '';
+}
+
 // Chrome AI 状态管理
 let chromeAIStatus = {
     available: false,
     modelReady: false,
+    modelStatus: 'checking',
     capabilities: null
 };
 
@@ -31,35 +39,54 @@ async function checkChromeAIStatus() {
         const response = await chrome.runtime.sendMessage({
             action: 'GET_STATS'
         });
-        
+
         if (response.status === 'SUCCESS') {
             chromeAIStatus = {
                 available: true,
                 modelReady: response.data.aiManager?.modelStatus === 'ready',
+                modelStatus: response.data.aiManager?.modelStatus || 'unknown',
                 capabilities: response.data.aiManager?.capabilities
             };
         } else {
             chromeAIStatus.available = false;
+            chromeAIStatus.modelReady = false;
+            chromeAIStatus.modelStatus = 'error';
         }
     } catch (error) {
         console.error('Chrome AI 状态检查失败:', error);
         chromeAIStatus.available = false;
+        chromeAIStatus.modelReady = false;
+        chromeAIStatus.modelStatus = 'error';
     }
-    
+
     updateUIBasedOnStatus();
 }
 
-// 根据 Chrome AI 状态更新 UI
+// 根据 Chrome AI 状态更新 UI 改
 function updateUIBasedOnStatus() {
-    if (!chromeAIStatus.available || !chromeAIStatus.modelReady) {
+    if (!chromeAIStatus.available) {
         showChromeAISetupPrompt();
-    } else {
-        showChromeAIReadyStatus();
+        return;
+    }
+
+    switch (chromeAIStatus.modelStatus) {
+        case 'ready':
+            showChromeAIReadyStatus();
+            break;
+        case 'preparing':
+            showChromeAIPreparingStatus();
+            break;
+        case 'error':
+            showChromeAISetupPrompt('Chrome AI 模型加载失败，请检查是否启用了相关实验功能。');
+            break;
+        default:
+            showChromeAISetupPrompt('正在检查 Chrome AI 状态，请稍候...');
+            break;
     }
 }
 
 // 显示 Chrome AI 设置提示
-function showChromeAISetupPrompt() {
+function showChromeAISetupPrompt(description = '启用 Chrome 内置 AI 以使用完整功能') {
     if (statusMessage) {
         statusMessage.innerHTML = `
             <div style="text-align: center; padding: 15px;">
@@ -68,7 +95,7 @@ function showChromeAISetupPrompt() {
                     Chrome AI 需要设置
                 </div>
                 <div style="font-size: 12px; color: #666; margin-bottom: 15px;">
-                    启用 Chrome 内置 AI 以使用完整功能
+                    ${description}
                 </div>
                 <button id="setup-chrome-ai" style="
                     background: linear-gradient(135deg, #4A90E2, #357ABD);
@@ -84,12 +111,13 @@ function showChromeAISetupPrompt() {
                 </button>
             </div>
         `;
-        
+
         document.getElementById('setup-chrome-ai')?.addEventListener('click', openChromeAISetup);
+        statusMessage.className = 'status-message';
     }
-    
+
     // 禁用功能按钮
-    disableFeatureButtons();
+    disableFeatureButtons('请先设置 Chrome AI');
 }
 
 // 显示 Chrome AI 就绪状态
@@ -107,9 +135,29 @@ function showChromeAIReadyStatus() {
         `;
         statusMessage.className = 'status-message success';
     }
-    
+
     // 启用功能按钮
     enableFeatureButtons();
+}
+
+// 显示 Chrome AI 就绪状态 改：
+function showChromeAIPreparingStatus() {
+    if (statusMessage) {
+        statusMessage.innerHTML = `
+            <div style="text-align: center; padding: 12px;">
+                <div style="font-size: 20px; margin-bottom: 8px;">📥</div>
+                <div style="font-weight: 600; color: #f39c12; margin-bottom: 6px;">
+                    Gemini Nano 模型正在下载
+                </div>
+                <div style="font-size: 12px; color: #8a6d3b; line-height: 1.5;">
+                    Chrome 正在后台准备本地 AI 模型。您可以在 <code>chrome://on-device-internals</code> 查看进度，完成后扩展会自动启用。
+                </div>
+            </div>
+        `;
+        statusMessage.className = 'status-message loading';
+    }
+
+    disableFeatureButtons('Gemini Nano 模型正在准备，请稍后重试');
 }
 
 // 打开 Chrome AI 设置指导
@@ -126,13 +174,13 @@ function openChromeAISetup() {
 }
 
 // 禁用功能按钮
-function disableFeatureButtons() {
+function disableFeatureButtons(tooltip = '') {
     const buttons = [summaryButton, chatPrepButton, companyAnalysisButton, analyzeCurrentPageButton];
     buttons.forEach(button => {
         if (button) {
             button.disabled = true;
             button.style.opacity = '0.5';
-            button.title = '请先设置 Chrome AI';
+            button.title = tooltip || '请先设置 Chrome AI';
         }
     });
 }
@@ -623,7 +671,22 @@ ${userBackground || '未提供用户背景信息'}
 // 显示闲聊准备结果
 function displayChatPrepResults(content) {
     const sections = parseChatPrepContent(content);
-    
+
+    // 改 ：小工具：转义 + 列表/段落友好化
+    const esc = s => String(s).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+    const pretty = txt => {
+        let t = esc(String(txt || ''));
+        t = t.replace(/^\s*[-•]\s+(.*)$/gm, '<li>$1</li>');
+        if (t.includes('<li>')) t = `<ul>${t}</ul>`;
+        return t.replace(/\n{2,}/g, '</p><p>').replace(/\n/g, '<br>');
+    };
+    const render = (title, data, priority='medium') => {
+        if (data == null || (Array.isArray(data) && !data.length)) return '';
+        const body = Array.isArray(data) ? `<ul>${data.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>` 
+                                        : `<p>${pretty(data)}</p>`;
+        return `<div class="card priority-${priority}"><h4>${title}</h4>${body}</div>`;
+    };
+
     let html = '';
     
     // 信息重要性排序
@@ -678,8 +741,11 @@ function displayChatPrepResults(content) {
             </div>
         </div>`;
     }
-    
-    chatPrepOutput.innerHTML = html;
+
+  // 解析不到
+  if (!html) html = `<div class="card"><h4>📄 原始结果</h4>${pretty(content)}</div>`;
+
+  chatPrepOutput.innerHTML = html;
 }
 
 // 公司信息分析功能
@@ -723,7 +789,10 @@ async function analyzeCompany() {
         });
         
         if (response && response.status === 'SUCCESS') {
-            displayCompanyAnalysisResults(response.output);
+            console.log('[POPUP] COMPANY_ANALYSIS resp =', response); // 调试用
+            const text = getOutput(response);
+            displayCompanyAnalysisResults(text);
+
             companyAnalysisStatus.textContent = '公司分析完成';
         } else {
             throw new Error(response?.message || '分析失败');
@@ -764,57 +833,63 @@ async function analyzeCurrentPage() {
     }
 }
 
-// 显示公司分析结果
+// 公司分析
 function displayCompanyAnalysisResults(content) {
-    const sections = parseCompanyAnalysisContent(content);
-    
+  // 小工具：转义 & 简单渲染
+  const esc = (s) => String(s).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+  const render = (title, data, priority = 'medium') => {
+    if (data == null) return '';
+    if (Array.isArray(data)) {
+      if (!data.length) return '';
+      const items = data.map(x => `<li>${esc(x)}</li>`).join('');
+      return `<div class="card priority-${priority}"><h4>${title}</h4><ul>${items}</ul></div>`;
+    }
+    const str = String(data).trim();
+    if (!str) return '';
+    return `<div class="card priority-${priority}"><h4>${title}</h4><p>${esc(str)}</p></div>`;
+  };
+
+  // 兼容：后台可能给字符串，也可能给结构化对象
+  const textLike = (typeof content === 'string') ? content
+                   : (content?.output ?? content?.data ?? '');
+
+  // 是不是结构化 sections
+  const isSections = (v) => v && typeof v === 'object' && (
+    'positioning' in v || 'timeline' in v || 'keyPeople' in v ||
+    'competition' in v || 'interviewTips' in v || 'suggestedQuestions' in v
+  );
+
+  const box = companyAnalysisOutput || document.getElementById('company-analysis-output');
+  if (!box) return;
+
+  // A) 结构化 → 卡片渲染（兼容数组/字符串）
+  if (isSections(content)) {
+    const s = content;
     let html = '';
-    
-    // 公司定位
-    if (sections.positioning) {
-        html += `<div class="card priority-high">
-            <h4>🏢 公司定位</h4>
-            <p>${sections.positioning}</p>
-        </div>`;
-    }
-    
-    // 时间线
-    if (sections.timeline) {
-        html += `<div class="card priority-high">
-            <h4>📅 重要事件时间线</h4>
-            <p>${sections.timeline}</p>
-        </div>`;
-    }
-    
-    // 关键人物和技能
-    if (sections.keyPeople) {
-        html += `<div class="card priority-medium">
-            <h4>👥 关键人物和热门技能</h4>
-            <p>${sections.keyPeople}</p>
-        </div>`;
-    }
-    
-    // 竞争分析
-    if (sections.competition) {
-        html += `<div class="card priority-medium">
-            <h4>🎯 竞争分析</h4>
-            <p>${sections.competition}</p>
-        </div>`;
-    }
-    
-    // 面试建议
-    if (sections.interviewTips) {
-        html += `<div class="card priority-low">
-            <h4>💡 面试建议</h4>
-            <p>${sections.interviewTips}</p>
-            <div class="action-buttons">
-                <button class="btn" onclick="copyToClipboard('${sections.interviewTips.replace(/'/g, "\\'")}')">复制建议</button>
-            </div>
-        </div>`;
-    }
-    
-    companyAnalysisOutput.innerHTML = html;
+    html += render('🏢 公司定位', s.positioning, 'high');
+    html += render('📅 重要事件时间线', s.timeline, 'high');
+    html += render('👥 关键人物和热门技能', s.keyPeople);
+    html += render('🎯 竞争分析', s.competition);
+    html += render('💡 面试建议', s.interviewTips, 'low');
+    html += render('❓ 可提问题', s.suggestedQuestions, 'low');
+    box.innerHTML = html || `<div class="card"><h4>ℹ️ 暂无可展示的结构化信息</h4></div>`;
+    return;
+  }
+
+  // B) 纯文本 → 轻量排版
+  const text = String(textLike || '').trim();
+  if (!text) {
+    box.innerHTML = `<div class="card"><h4>⚠️ 结果为空</h4><p>请重试或更换输入。</p></div>`;
+    return;
+  }
+  let pretty = esc(text)
+    .replace(/^\s*[-•]\s+(.*)$/gm, '<li>$1</li>');
+  if (pretty.includes('<li>')) pretty = `<ul>${pretty}</ul>`;
+  pretty = pretty.replace(/\r\n/g, '\n').replace(/\n{2,}/g, '</p><p>').replace(/\n/g, '<br>');
+  box.innerHTML = `<div class="card"><h4>📄 原始结果</h4><p>${pretty}</p></div>`;
 }
+
+
 
 // 辅助函数
 function parseChatPrepContent(content) {
