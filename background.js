@@ -42,19 +42,6 @@ async function ensureOffscreen() {
     });
   }
 }
-
-// 改: 主动预热
-async function prewarmLM() {
-  try {
-    await ensureOffscreen();
-    await chrome.runtime.sendMessage({ action: 'OFFSCREEN_PREWARM' });
-    console.log('[BG] OFFSCREEN_PREWARM sent');
-  } catch (e) {
-    console.warn('[BG] prewarmLM failed:', e?.message || e);
-  }
-}
-
-
 // 
 function callOffscreen(action, payload = {}, timeoutMs = 120000) {
   return new Promise(async (resolve) => {
@@ -475,7 +462,16 @@ async function callLLMDirect(params) {
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   console.log('DEBUG [BG]: Received action:', request.action);
   (async () => {
-    // 处理不同类型的请求
+
+    // 改：ping 
+    if (request.action === 'OFFSCREEN_PING') {
+      console.log('[BG] 💤 Received OFFSCREEN_PING, ensuring offscreen is alive...');
+      await ensureOffscreen();
+      sendResponse({ ok: true });
+      return;
+    }
+
+    // 业务动作：处理不同类型的请求
     switch (request.action) {
       case 'RUN_SUMMARY': {
         const r = await callOffscreen('OFFSCREEN_SUMMARY', { text: request.text, url: request.url });
@@ -889,15 +885,7 @@ chrome.runtime.onInstalled.addListener((details) => {
     // 首次安装时配置 Chrome AI 环境
     autoSetupTestEnvironment();
   }
-  // 改: 安装/更新后主动预热一次
-  prewarmLM();
 });
-
-// 浏览器重启后也预热
-chrome.runtime.onStartup?.addListener(() => {
-  prewarmLM();
-});
-
 
 // Chrome AI 设置指导
 function getSetupGuidance() {

@@ -533,10 +533,6 @@ async function generateScenarioAdvice(scenario, targetData) {
   } catch (error) {
     console.error('场景建议生成失败:', error);
     addMessage('assistant', `❌ 生成失败: ${error.message}`);
-  // 改: “正在下载/未开放/超时”，给出更友好的解释
-  if (isLMNotReadyReason(error?.message)) {
-    showLMNotReady(error?.message);
-  }
   } finally {
     hideTypingIndicator();
   }
@@ -676,11 +672,6 @@ async function sendMessage() {
   } catch (error) {
     console.error('消息发送失败:', error);
     addMessage('assistant', `❌ 发送失败: ${error.message}`);
-
-  // 改: “正在下载/未开放/超时”，给出更友好的解释
-  if (isLMNotReadyReason(error?.message)) {
-    showLMNotReady(error?.message);
-  }
   } finally {
     hideTypingIndicator();
     AppState.isLoading = false;
@@ -1085,33 +1076,6 @@ function copyFollowUpEmail() {
   });
 }
 
-// 改: 本地模型未就绪提醒
-function isLMNotReadyReason(reason = '') {
-  const s = String(reason || '').toLowerCase();
-  return (
-    s.includes('languagemodel') ||
-    s.includes('download') || s.includes('downloading') || s.includes('downloadable') ||
-    s.includes('smoke') || s.includes('timeout') ||
-    s.includes('api not available') || s.includes('unavailable')
-  );
-}
-
-function showLMNotReady(reason = '') {
-  const s = String(reason || '').toLowerCase();
-  let msg = '本地模型暂不可用，请稍后重试。';
-
-  if (s.includes('unavailable') || s.includes('api not available')) {
-    msg = '❌ 本地模型未开放（请确认 Chrome 127+ 且启用相关 flags）。';
-  } else if (s.includes('downloading') || s.includes('downloadable') || s.includes('download')) {
-    msg = '本地模型正在首次准备（下载/解压/初始化），完成后将自动可用。';
-  } else if (s.includes('smoke') || s.includes('timeout')) {
-    msg = '初始化较慢（网络/磁盘/杀软可能导致），稍等片刻再试。';
-  }
-
-  // 复用showToast
-  showToast(msg, 'warning');
-}
-
 // Toast 提示
 function showToast(message, type = 'info') {
   // 移除已存在的 toast
@@ -1174,3 +1138,21 @@ function showToast(message, type = 'info') {
     setTimeout(() => toast.remove(), 300);
   }, 3000);
 }
+
+// 改：用户激活输入框时唤醒 Offscreen
+document.addEventListener('DOMContentLoaded', () => {
+  const input =
+    document.getElementById('chatInput') ||
+    document.querySelector('textarea') ||
+    document.querySelector('input');
+
+  if (!input) return;
+
+  const wakeOffscreen = () => {
+    chrome.runtime.sendMessage({ action: 'OFFSCREEN_PING' }).catch(() => {});
+  };
+
+  input.addEventListener('focus', wakeOffscreen);
+  input.addEventListener('keydown', wakeOffscreen);
+});
+
