@@ -180,7 +180,8 @@
       position: relative; /* 让 handle 可以定位在边缘 */
     }
 
-    /* 折叠时可点击的可见（用于在列表折叠后重新打开） */
+    /* 折叠时可点击的可见把手（用于在列表折叠后重新打开）
+       默认隐藏，仅当左侧列表有 .collapsed 时通过兄弟选择器显示 */
     .toggle-list-handle {
       position: absolute;
       left: -18px; /* 贴在聊天面板左侧边缘，超出被折叠的列表区域 */
@@ -190,7 +191,7 @@
       border-radius: 8px;
       background: white;
       border: 1px solid #e5e7eb;
-      display: flex;
+      display: none; /* 默认隐藏 */
       align-items: center;
       justify-content: center;
       cursor: pointer;
@@ -198,6 +199,11 @@
       z-index: 30;
       font-size: 16px;
       color: #6b7280;
+    }
+
+    /* 当 chat-list 折叠后，显示把手（利用兄弟选择器） */
+    .chat-list-panel.collapsed + .chat-panel .toggle-list-handle {
+      display: flex;
     }
 
     /* 当窗口较窄时，把手位置稍微调整以避免遮挡 */

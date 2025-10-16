@@ -27,6 +27,7 @@ const elements = {
   chatHeader: document.getElementById('chatHeader'),
   chatMessages: document.getElementById('chatMessages'),
   emptyState: document.getElementById('emptyState'),
+  chatPanel: document.querySelector('.chat-panel'),
   
   // 目标信息
   targetAvatar: document.getElementById('targetAvatar'),
@@ -129,6 +130,9 @@ function bindEvents() {
   if (elements.toggleListHandle) {
     elements.toggleListHandle.addEventListener('click', toggleChatList);
   }
+
+  // sync toggle UI state initially
+  updateToggleUI();
   
   // 场景按钮
   elements.coffeeChatBtn.addEventListener('click', () => activateScenario('coffee-chat'));
@@ -795,24 +799,32 @@ function toggleChatList() {
 
   // Update handle icon and visibility
   if (elements.toggleListHandle) {
-    // when collapsed, show a right-pointing arrow on the handle
-    elements.toggleListHandle.textContent = collapsed ? '◀' : '◀';
-    // ensure the handle remains visible and focusable when collapsed
-    if (collapsed) {
-      elements.toggleListHandle.style.display = 'flex';
-      // shift it slightly out so it sits on the edge
-      elements.toggleListHandle.setAttribute('aria-expanded', 'false');
-    } else {
-      elements.toggleListHandle.style.display = 'none';
-      elements.toggleListHandle.setAttribute('aria-expanded', 'true');
-    }
+    elements.toggleListHandle.textContent = '◀';
+    elements.toggleListHandle.setAttribute('aria-expanded', String(!collapsed));
   }
 
-  // If collapsed, make sure the chat panel has enough left padding so content not hidden
-  if (collapsed) {
-    elements.chatPanel.style.paddingLeft = '12px';
-  } else {
-    elements.chatPanel.style.paddingLeft = '';
+  // Sync which toggle controls are visible so only one toggle is shown at a time
+  updateToggleUI();
+}
+
+// Ensure only one toggle control is visible at any time.
+function updateToggleUI() {
+  const collapsed = elements.chatListPanel.classList.contains('collapsed');
+
+  // When collapsed: hide header toggle inside list header, show handle
+  if (elements.toggleListBtn) {
+    elements.toggleListBtn.style.display = collapsed ? 'none' : 'inline-block';
+  }
+
+  if (elements.toggleListHandle) {
+    // CSS controls actual visibility; we set pointer/focusability
+    elements.toggleListHandle.style.pointerEvents = collapsed ? 'auto' : 'none';
+    elements.toggleListHandle.tabIndex = collapsed ? 0 : -1;
+  }
+
+  // Mobile toggle should remain available for small screens
+  if (elements.toggleListMobile) {
+    elements.toggleListMobile.style.display = 'none';
   }
 }
 
