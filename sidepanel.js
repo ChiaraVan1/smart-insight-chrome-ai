@@ -1174,3 +1174,29 @@ function showToast(message, type = 'info') {
     setTimeout(() => toast.remove(), 300);
   }, 3000);
 }
+
+
+// 改：用户点击任意聊天区域时唤醒 Offscreen
+
+document.addEventListener('DOMContentLoaded', () => {
+  const chatPanel = document.querySelector('.chat-panel');
+  if (!chatPanel) return;
+
+  const wakeOffscreen = () => {
+    chrome.runtime.sendMessage({ action: 'OFFSCREEN_PING' })
+      .then(() => console.log('%c[SidePanel] ✅ Offscreen alive', 'color: #00c853'))
+      .catch(() => console.log('%c[SidePanel] ❌ Offscreen ping failed', 'color: #d50000'));
+  };
+
+  // 仅在用户第一次点击时触发，防止频繁调用
+  let hasPinged = false;
+  chatPanel.addEventListener('click', () => {
+    if (!hasPinged) {
+      wakeOffscreen();
+      hasPinged = true;
+      // 10秒后可重新触发一次
+      setTimeout(() => (hasPinged = false), 10000);
+    }
+  });
+});
+
