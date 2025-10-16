@@ -9,7 +9,8 @@
     "scripting",
     "storage",
     "sidePanel",
-    "notifications"
+    "notifications",
+    "offscreen"
   ],
 
   "host_permissions": [
@@ -17,7 +18,11 @@
   ],
 
   "action": {
-    "default_popup": "popup.html"
+    "default_title": "SmartInsight - 对话模式"
+  },
+  
+  "side_panel": {
+    "default_path": "sidepanel.html"
   }, 
   "background": {
     "service_worker": "background.js"
@@ -34,10 +39,7 @@
   "web_accessible_resources": [
     {
       "resources": [
-        "src/storage/database.js",
-        "src/ai/chrome-ai-manager.js",
-        "src/ui/chrome-ai-setup-guide.js",
-        "demo-comparison.html"
+        "offscreen.html"
       ],
       "matches": ["<all_urls>"]
     }

@@ -1,6 +1,316 @@
 // content-script.js - 增强版内容脚本
 // 集成LinkedIn采集、侧边栏UI和智能分析功能
 
+// ========================================
+// 智能导入检测器 - P0-1
+// ========================================
+class SmartImportDetector {
+  constructor() {
+    this.lastUrl = '';
+    this.checkInterval = null;
+    this.toastShown = false;
+    this.dismissedPages = new Set(); // 记录用户关闭过的页面
+  }
+  
+  init() {
+    console.log('🎯 智能导入检测器已启动');
+    
+    // 监听URL变化
+    this.checkInterval = setInterval(() => {
+      if (window.location.href !== this.lastUrl) {
+        this.lastUrl = window.location.href;
+        this.toastShown = false; // 重置提示状态
+        
+        // 延迟检测，等待页面加载
+        setTimeout(() => this.detectAndPrompt(), 2000);
+      }
+    }, 1000);
+    
+    // 首次检测
+    setTimeout(() => this.detectAndPrompt(), 3000);
+  }
+  
+  detectAndPrompt() {
+    const pageType = this.detectPageType();
+    const currentUrl = window.location.href;
+    
+    // 如果用户已经关闭过这个页面的提示，不再显示
+    if (this.dismissedPages.has(currentUrl)) {
+      return;
+    }
+    
+    if (pageType && !this.toastShown) {
+      this.showImportPrompt(pageType);
+      this.toastShown = true;
+    }
+  }
+  
+  detectPageType() {
+    const url = window.location.href;
+    if (url.includes('linkedin.com/in/')) return 'profile';
+    if (url.includes('linkedin.com/company/')) return 'company';
+    return null;
+  }
+  
+  showImportPrompt(type) {
+    // 避免重复显示
+    if (document.getElementById('smartinsight-import-toast')) {
+      return;
+    }
+    
+    const typeText = type === 'profile' ? '个人资料' : '公司页面';
+    const icon = type === 'profile' ? '👤' : '🏢';
+    
+    const toast = document.createElement('div');
+    toast.id = 'smartinsight-import-toast';
+    toast.innerHTML = `
+      <div class="toast-content">
+        <span class="toast-icon">${icon}</span>
+        <div class="toast-body">
+          <div class="toast-title">检测到 ${typeText}</div>
+          <div class="toast-subtitle">一键导入到 SmartInsight 对话模式</div>
+        </div>
+        <button class="toast-import-btn">✨ 导入</button>
+        <button class="toast-close">×</button>
+      </div>
+    `;
+    
+    // 样式
+    const style = document.createElement('style');
+    style.textContent = `
+      #smartinsight-import-toast {
+        position: fixed;
+        bottom: 80px;
+        right: 20px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 16px 20px;
+        border-radius: 12px;
+        box-shadow: 0 8px 24px rgba(102, 126, 234, 0.4);
+        z-index: 999999;
+        animation: slideIn 0.3s ease-out;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        min-width: 320px;
+      }
+      
+      @keyframes slideIn {
+        from {
+          transform: translateX(400px);
+          opacity: 0;
+        }
+        to {
+          transform: translateX(0);
+          opacity: 1;
+        }
+      }
+      
+      #smartinsight-import-toast .toast-content {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      
+      #smartinsight-import-toast .toast-icon {
+        font-size: 28px;
+        flex-shrink: 0;
+      }
+      
+      #smartinsight-import-toast .toast-body {
+        flex: 1;
+      }
+      
+      #smartinsight-import-toast .toast-title {
+        font-weight: 600;
+        font-size: 14px;
+        margin-bottom: 4px;
+      }
+      
+      #smartinsight-import-toast .toast-subtitle {
+        font-size: 12px;
+        opacity: 0.9;
+      }
+      
+      #smartinsight-import-toast .toast-import-btn {
+        background: white;
+        color: #667eea;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 6px;
+        font-weight: 600;
+        font-size: 13px;
+        cursor: pointer;
+        transition: all 0.2s;
+        flex-shrink: 0;
+      }
+      
+      #smartinsight-import-toast .toast-import-btn:hover {
+        transform: scale(1.05);
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      }
+      
+      #smartinsight-import-toast .toast-close {
+        background: transparent;
+        border: none;
+        color: white;
+        font-size: 24px;
+        cursor: pointer;
+        padding: 0;
+        width: 24px;
+        height: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        opacity: 0.7;
+        transition: opacity 0.2s;
+        flex-shrink: 0;
+      }
+      
+      #smartinsight-import-toast .toast-close:hover {
+        opacity: 1;
+      }
+    `;
+    
+    document.head.appendChild(style);
+    document.body.appendChild(toast);
+    
+    // 点击导入
+    toast.querySelector('.toast-import-btn').onclick = () => {
+      this.triggerImport(type);
+      toast.remove();
+    };
+    
+    // 关闭
+    toast.querySelector('.toast-close').onclick = () => {
+      this.dismissedPages.add(window.location.href);
+      toast.remove();
+    };
+    
+    // 5秒后自动消失
+    setTimeout(() => {
+      if (toast.parentNode) {
+        toast.style.animation = 'slideIn 0.3s ease-out reverse';
+        setTimeout(() => toast.remove(), 300);
+      }
+    }, 5000);
+    
+    console.log('✅ 显示导入提示:', typeText);
+  }
+  
+  async triggerImport(type) {
+    console.log('🚀 触发自动导入:', type);
+    
+    try {
+      // 显示加载提示
+      this.showLoadingToast();
+      
+      // 打开 Side Panel
+      await chrome.runtime.sendMessage({
+        action: 'OPEN_SIDE_PANEL'
+      });
+      
+      // 延迟一下，确保 Side Panel 已打开
+      setTimeout(async () => {
+        // 触发导入
+        await chrome.runtime.sendMessage({
+          action: 'AUTO_IMPORT_LINKEDIN',
+          type: type,
+          url: window.location.href
+        });
+        
+        this.hideLoadingToast();
+      }, 500);
+      
+    } catch (error) {
+      console.error('❌ 自动导入失败:', error);
+      this.hideLoadingToast();
+      this.showErrorToast('导入失败，请手动打开 Side Panel 后点击导入');
+    }
+  }
+  
+  showLoadingToast() {
+    const loading = document.createElement('div');
+    loading.id = 'smartinsight-loading-toast';
+    loading.innerHTML = `
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <div class="spinner"></div>
+        <span>正在导入数据...</span>
+      </div>
+    `;
+    loading.style.cssText = `
+      position: fixed;
+      bottom: 80px;
+      right: 20px;
+      background: #667eea;
+      color: white;
+      padding: 16px 20px;
+      border-radius: 12px;
+      box-shadow: 0 8px 24px rgba(102, 126, 234, 0.4);
+      z-index: 999999;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    `;
+    
+    const style = document.createElement('style');
+    style.textContent = `
+      .spinner {
+        width: 20px;
+        height: 20px;
+        border: 3px solid rgba(255,255,255,0.3);
+        border-top-color: white;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+      }
+      @keyframes spin {
+        to { transform: rotate(360deg); }
+      }
+    `;
+    document.head.appendChild(style);
+    document.body.appendChild(loading);
+  }
+  
+  hideLoadingToast() {
+    const loading = document.getElementById('smartinsight-loading-toast');
+    if (loading) loading.remove();
+  }
+  
+  showErrorToast(message) {
+    const error = document.createElement('div');
+    error.innerHTML = `
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <span>❌</span>
+        <span>${message}</span>
+      </div>
+    `;
+    error.style.cssText = `
+      position: fixed;
+      bottom: 80px;
+      right: 20px;
+      background: #ef4444;
+      color: white;
+      padding: 16px 20px;
+      border-radius: 12px;
+      box-shadow: 0 8px 24px rgba(239, 68, 68, 0.4);
+      z-index: 999999;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      max-width: 320px;
+    `;
+    document.body.appendChild(error);
+    setTimeout(() => error.remove(), 3000);
+  }
+  
+  destroy() {
+    if (this.checkInterval) {
+      clearInterval(this.checkInterval);
+    }
+  }
+}
+
+// 实例化检测器
+const smartImportDetector = new SmartImportDetector();
+
+// ========================================
+// 原有代码
+// ========================================
+
 // 實入模块
 let LinkedInScraper, CareerSidebar, WorkflowEngine, AIManager;
 
@@ -724,9 +1034,13 @@ chrome.runtime.onMessage.addListener(handleMessage);
 
 // 启动初始化
 if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
+    document.addEventListener('DOMContentLoaded', () => {
+        init();
+        smartImportDetector.init(); // 启动智能导入检测器
+    });
 } else {
     init();
+    smartImportDetector.init(); // 启动智能导入检测器
 }
 
 // 向background script报告content script已加载
