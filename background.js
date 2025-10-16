@@ -475,7 +475,17 @@ async function callLLMDirect(params) {
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   console.log('DEBUG [BG]: Received action:', request.action);
   (async () => {
-    // 处理不同类型的请求
+
+    // 改： ping
+    if (request.action === 'OFFSCREEN_PING') {
+      console.log('[BG] 💤 Received OFFSCREEN_PING, ensuring offscreen is alive...');
+      await ensureOffscreen();
+      sendResponse({ ok: true });
+      return;
+    }
+
+
+    // 其他业务：处理不同类型的请求
     switch (request.action) {
       case 'RUN_SUMMARY': {
         const r = await callOffscreen('OFFSCREEN_SUMMARY', { text: request.text, url: request.url });

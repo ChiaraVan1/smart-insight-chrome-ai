@@ -1174,3 +1174,22 @@ function showToast(message, type = 'info') {
     setTimeout(() => toast.remove(), 300);
   }, 3000);
 }
+
+// 改：用户激活输入框
+document.addEventListener('DOMContentLoaded', () => {
+  const input =
+    document.getElementById('chatInput') ||
+    document.querySelector('textarea') ||
+    document.querySelector('input');
+
+  if (!input) return;
+
+  const wakeOffscreen = () => {
+    chrome.runtime.sendMessage({ action: 'OFFSCREEN_PING' })
+      .then(() => console.log('%c[SidePanel] ✅ Offscreen alive', 'color: #00c853'))
+      .catch(() => console.log('%c[SidePanel] ❌ Offscreen ping failed', 'color: #d50000'));
+  };
+
+  input.addEventListener('focus', wakeOffscreen);
+  input.addEventListener('keydown', wakeOffscreen);
+});
