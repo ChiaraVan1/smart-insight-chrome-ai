@@ -21,6 +21,7 @@ const elements = {
   chatListContent: document.getElementById('chatListContent'),
   toggleListBtn: document.getElementById('toggleListBtn'),
   toggleListMobile: document.getElementById('toggleListMobile'),
+  toggleListHandle: document.getElementById('toggleListHandle'),
   
   // 聊天区域
   chatHeader: document.getElementById('chatHeader'),
@@ -124,6 +125,10 @@ function bindEvents() {
   // 切换聊天列表
   elements.toggleListBtn.addEventListener('click', toggleChatList);
   elements.toggleListMobile.addEventListener('click', toggleChatList);
+  // handle that remains visible when list is collapsed
+  if (elements.toggleListHandle) {
+    elements.toggleListHandle.addEventListener('click', toggleChatList);
+  }
   
   // 场景按钮
   elements.coffeeChatBtn.addEventListener('click', () => activateScenario('coffee-chat'));
@@ -781,9 +786,34 @@ async function importLinkedInProfile() {
 // UI 辅助函数
 // ========================================
 function toggleChatList() {
-  elements.chatListPanel.classList.toggle('collapsed');
-  elements.toggleListBtn.textContent = 
-    elements.chatListPanel.classList.contains('collapsed') ? '▶' : '◀';
+  const collapsed = elements.chatListPanel.classList.toggle('collapsed');
+
+  // Update header button icon
+  if (elements.toggleListBtn) {
+    elements.toggleListBtn.textContent = collapsed ? '▶' : '◀';
+  }
+
+  // Update handle icon and visibility
+  if (elements.toggleListHandle) {
+    // when collapsed, show a right-pointing arrow on the handle
+    elements.toggleListHandle.textContent = collapsed ? '◀' : '◀';
+    // ensure the handle remains visible and focusable when collapsed
+    if (collapsed) {
+      elements.toggleListHandle.style.display = 'flex';
+      // shift it slightly out so it sits on the edge
+      elements.toggleListHandle.setAttribute('aria-expanded', 'false');
+    } else {
+      elements.toggleListHandle.style.display = 'none';
+      elements.toggleListHandle.setAttribute('aria-expanded', 'true');
+    }
+  }
+
+  // If collapsed, make sure the chat panel has enough left padding so content not hidden
+  if (collapsed) {
+    elements.chatPanel.style.paddingLeft = '12px';
+  } else {
+    elements.chatPanel.style.paddingLeft = '';
+  }
 }
 
 function autoResizeTextarea() {
