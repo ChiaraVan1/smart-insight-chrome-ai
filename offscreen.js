@@ -20,7 +20,7 @@ const LM_OPTS = {
 // 懒加载 + 单例会话
 async function getSession() {
   if (!('LanguageModel' in self)) {
-    throw new Error('LanguageModel API is not available in offscreen context.');
+    throw new Error('LanguageModel API is not available in offscreen context (Windows 环境出现).');
   }
   if (!session) {
     const a = await LanguageModel.availability(LM_OPTS);
@@ -38,6 +38,7 @@ async function runPrompt(text) {
 }
 
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+   
   // Offscreen 只处理 OFFSCREEN_*，其余一律忽略
   if (!msg?.action?.startsWith?.('OFFSCREEN_')) {
     return;  // 不 sendResponse，也不 return true，让 SW 去处理
@@ -76,6 +77,15 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       sendResponse({ ok: true, data: out });
       return;
     }
+
+    // 改: 预热（提前 materialize）
+    if (msg.action === 'OFFSCREEN_PREWARM') {
+      const s = await getSession();        // 触发 LanguageModel.create(...)
+      try { await s.prompt('OK'); } catch (_) {} // 一句短 prompt 进一步预热
+      sendResponse({ ok: true });
+      return;
+    }
+
 
     sendResponse({ ok: false, error: 'Unknown offscreen action: ' + msg.action });
   })().catch(err => {

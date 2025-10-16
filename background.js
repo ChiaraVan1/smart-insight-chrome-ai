@@ -42,6 +42,19 @@ async function ensureOffscreen() {
     });
   }
 }
+
+// 改: 主动预热
+async function prewarmLM() {
+  try {
+    await ensureOffscreen();
+    await chrome.runtime.sendMessage({ action: 'OFFSCREEN_PREWARM' });
+    console.log('[BG] OFFSCREEN_PREWARM sent');
+  } catch (e) {
+    console.warn('[BG] prewarmLM failed:', e?.message || e);
+  }
+}
+
+
 // 
 function callOffscreen(action, payload = {}, timeoutMs = 120000) {
   return new Promise(async (resolve) => {
@@ -876,7 +889,15 @@ chrome.runtime.onInstalled.addListener((details) => {
     // 首次安装时配置 Chrome AI 环境
     autoSetupTestEnvironment();
   }
+  // 改: 安装/更新后主动预热一次
+  prewarmLM();
 });
+
+// 浏览器重启后也预热
+chrome.runtime.onStartup?.addListener(() => {
+  prewarmLM();
+});
+
 
 // Chrome AI 设置指导
 function getSetupGuidance() {
