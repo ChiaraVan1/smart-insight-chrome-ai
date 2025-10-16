@@ -502,7 +502,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
       case 'GET_LINKEDIN_PROFILE_DATA':
         await handleGetLinkedInProfileData(request, sendResponse);
-        break;
+        return true; // 改：异步响应 
 
       // 新增：场景建议生成
       case 'GENERATE_SCENARIO_ADVICE':
