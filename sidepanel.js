@@ -202,14 +202,28 @@ function createChatItem(chat) {
   
   div.innerHTML = `
     <div class="chat-item-header">
-      <span class="chat-item-icon">${icon}</span>
-      <span class="chat-item-name">${chat.targetName || '未命名对话'}</span>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span class="chat-item-icon">${icon}</span>
+        <span class="chat-item-name">${chat.targetName || '未命名对话'}</span>
+      </div>
+      <button class="chat-delete-btn" title="Delete conversation" data-chat-id="${chat.id}">🗑</button>
     </div>
     <div class="chat-item-meta">${timeStr}</div>
     <div class="chat-item-preview">${preview}...</div>
   `;
   
+  // clicking the item opens it
   div.addEventListener('click', () => loadChat(chat.id));
+
+  // delete button handler (stop propagation so click doesn't open)
+  const delBtn = div.querySelector('.chat-delete-btn');
+  if (delBtn) {
+    delBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const id = e.currentTarget.getAttribute('data-chat-id');
+      showDeleteConfirmation(id);
+    });
+  }
   
   return div;
 }
@@ -233,6 +247,8 @@ function createNewChat() {
   saveChats();
   renderChatList();
   renderCurrentChat();
+
+  showToast('✅ New conversation created', 'success');
   
   // 显示空状态
   showEmptyState();
@@ -718,6 +734,67 @@ function buildContext(chat) {
       content: m.content
     }))
   };
+}
+
+function showDeleteConfirmation(chatId) {
+  // 如果已有确认器则移除
+  const existing = document.getElementById('delete-confirmation');
+  if (existing) existing.remove();
+
+  const overlay = document.createElement('div');
+  overlay.id = 'delete-confirmation';
+  overlay.style.cssText = `
+    position: fixed; left: 0; top: 0; right: 0; bottom: 0;
+    display:flex; align-items:center; justify-content:center; z-index:12000;
+    background: rgba(0,0,0,0.35);
+  `;
+
+  const dialog = document.createElement('div');
+  dialog.style.cssText = `
+    background: white; padding: 18px; border-radius: 10px; width: 360px; box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+  `;
+
+  dialog.innerHTML = `
+    <h3 style="margin:0 0 8px 0">Delete conversation</h3>
+    <p style="margin:0 0 12px 0;color:#374151">This action cannot be undone. Press Confirm to delete.</p>
+    <div style="display:flex;gap:8px;justify-content:flex-end;">
+      <button id="delete-cancel" style="padding:8px 12px;border-radius:6px;border:1px solid #e5e7eb;background:#fff;cursor:pointer;">Cancel</button>
+      <button id="delete-confirm" style="padding:8px 12px;border-radius:6px;background:#ef4444;color:white;border:none;cursor:pointer;">Confirm</button>
+    </div>
+  `;
+
+  overlay.appendChild(dialog);
+  document.body.appendChild(overlay);
+
+  const cancelBtn = document.getElementById('delete-cancel');
+  const confirmBtn = document.getElementById('delete-confirm');
+
+  cancelBtn.addEventListener('click', () => overlay.remove());
+
+  confirmBtn.addEventListener('click', () => {
+    overlay.remove();
+    performDeleteChat(chatId);
+  });
+}
+
+function performDeleteChat(chatId) {
+  const chat = AppState.chats.find(c => c.id === chatId);
+  if (!chat) return;
+
+  AppState.chats = AppState.chats.filter(c => c.id !== chatId);
+
+  if (AppState.currentChatId === chatId) {
+    AppState.currentChatId = null;
+  }
+
+  saveChats();
+  renderChatList();
+
+  if (!AppState.currentChatId) {
+    showEmptyState();
+  }
+
+  showToast('✅ Conversation deleted', 'success');
 }
 
 // ========================================
