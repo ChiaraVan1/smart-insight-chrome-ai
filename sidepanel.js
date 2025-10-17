@@ -803,12 +803,18 @@ function toggleChatList() {
 
   // Update header button icon
   if (elements.toggleListBtn) {
-    elements.toggleListBtn.textContent = collapsed ? '▶' : '◀';
+    // header shows a thicker left-arrow character when the list is expanded
+    elements.toggleListBtn.textContent = '◀';
   }
 
   // Update handle icon and visibility
   if (elements.toggleListHandle) {
-    elements.toggleListHandle.textContent = '◀';
+    // when collapsed show the history (clock) icon on the handle; otherwise show a thicker arrow
+    if (collapsed) {
+      elements.toggleListHandle.innerHTML = getHistorySVG();
+    } else {
+      elements.toggleListHandle.textContent = '◀';
+    }
     elements.toggleListHandle.setAttribute('aria-expanded', String(!collapsed));
   }
 
@@ -823,18 +829,31 @@ function updateToggleUI() {
   // When collapsed: hide header toggle inside list header, show handle
   if (elements.toggleListBtn) {
     elements.toggleListBtn.style.display = collapsed ? 'none' : 'inline-block';
+    // ensure header shows history icon when visible
+    if (!collapsed) elements.toggleListBtn.textContent = '◀';
   }
 
   if (elements.toggleListHandle) {
     // CSS controls actual visibility; we set pointer/focusability
     elements.toggleListHandle.style.pointerEvents = collapsed ? 'auto' : 'none';
     elements.toggleListHandle.tabIndex = collapsed ? 0 : -1;
+    // ensure handle shows clock when collapsed
+    if (collapsed) elements.toggleListHandle.innerHTML = getHistorySVG();
   }
 
   // Mobile toggle should remain available for small screens
   if (elements.toggleListMobile) {
     elements.toggleListMobile.style.display = 'none';
   }
+}
+
+function getHistorySVG() {
+  return `
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.5"></circle>
+      <path d="M12 7v5l3 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path>
+    </svg>
+  `;
 }
 
 function autoResizeTextarea() {
