@@ -180,39 +180,6 @@
       position: relative; /* 让 handle 可以定位在边缘 */
     }
 
-    /* 折叠时可点击的可见把手（用于在列表折叠后重新打开）
-       默认隐藏，仅当左侧列表有 .collapsed 时通过兄弟选择器显示 */
-    .toggle-list-handle {
-      position: absolute;
-      left: -18px; /* 贴在聊天面板左侧边缘，超出被折叠的列表区域 */
-      top: 20px;
-      width: 36px;
-      height: 36px;
-      border-radius: 8px;
-      background: white;
-      border: 1px solid #e5e7eb;
-      display: none; /* 默认隐藏 */
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-      z-index: 30;
-      font-size: 16px;
-      color: #6b7280;
-    }
-
-    /* 当 chat-list 折叠后，显示把手（利用兄弟选择器） */
-    .chat-list-panel.collapsed + .chat-panel .toggle-list-handle {
-      display: flex;
-    }
-
-    /* 当窗口较窄时，把手位置稍微调整以避免遮挡 */
-    @media (max-width: 768px) {
-      .toggle-list-handle {
-        left: 8px;
-        top: 12px;
-      }
-    }
 
     /* 聊天头部 */
     .chat-header {
@@ -646,9 +613,14 @@
         <div class="header-subtitle">AI-Powered Career Assistant</div>
       </div>
     </div>
-    <button class="new-chat-btn" id="newChatBtn">
-      ✨ 新对话
-    </button>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <button class="icon-btn" id="toggleClockBtn" title="打开/关闭对话列表" style="background:none;border:none;color:white;font-size:18px;cursor:pointer;padding:6px;">
+        ⏱️
+      </button>
+      <button class="new-chat-btn" id="newChatBtn">
+        ✨ 新对话
+      </button>
+    </div>
   </div>
 
   <!-- 主容器 -->
@@ -672,7 +644,6 @@
 
     <!-- 右侧聊天区域 -->
     <div class="chat-panel">
-      <button class="toggle-list-handle" id="toggleListHandle" title="打开/关闭对话列表">◀</button>
       <!-- 聊天头部 -->
       <div class="chat-header" id="chatHeader" style="display: none;">
         <div class="chat-header-left">

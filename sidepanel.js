@@ -21,7 +21,7 @@ const elements = {
   chatListContent: document.getElementById('chatListContent'),
   toggleListBtn: document.getElementById('toggleListBtn'),
   toggleListMobile: document.getElementById('toggleListMobile'),
-  toggleListHandle: document.getElementById('toggleListHandle'),
+  toggleClockBtn: document.getElementById('toggleClockBtn'),
   
   // 聊天区域
   chatHeader: document.getElementById('chatHeader'),
@@ -126,9 +126,8 @@ function bindEvents() {
   // 切换聊天列表
   elements.toggleListBtn.addEventListener('click', toggleChatList);
   elements.toggleListMobile.addEventListener('click', toggleChatList);
-  // handle that remains visible when list is collapsed
-  if (elements.toggleListHandle) {
-    elements.toggleListHandle.addEventListener('click', toggleChatList);
+  if (elements.toggleClockBtn) {
+    elements.toggleClockBtn.addEventListener('click', toggleChatList);
   }
 
   // sync toggle UI state initially
@@ -808,14 +807,12 @@ function toggleChatList() {
   }
 
   // Update handle icon and visibility
-  if (elements.toggleListHandle) {
-    // when collapsed show the history (clock) icon on the handle; otherwise show a thicker arrow
-    if (collapsed) {
-      elements.toggleListHandle.innerHTML = getHistorySVG();
-    } else {
-      elements.toggleListHandle.textContent = '◀';
-    }
-    elements.toggleListHandle.setAttribute('aria-expanded', String(!collapsed));
+  // floating handle removed; top clock button controls collapse
+
+  if (elements.toggleClockBtn) {
+    // reflect collapsed state on the clock button next to New Chat
+    elements.toggleClockBtn.setAttribute('aria-pressed', String(collapsed));
+    elements.toggleClockBtn.title = collapsed ? '打开对话列表' : '折叠对话列表';
   }
 
   // Sync which toggle controls are visible so only one toggle is shown at a time
@@ -833,27 +830,18 @@ function updateToggleUI() {
     if (!collapsed) elements.toggleListBtn.textContent = '◀';
   }
 
-  if (elements.toggleListHandle) {
-    // CSS controls actual visibility; we set pointer/focusability
-    elements.toggleListHandle.style.pointerEvents = collapsed ? 'auto' : 'none';
-    elements.toggleListHandle.tabIndex = collapsed ? 0 : -1;
-    // ensure handle shows clock when collapsed
-    if (collapsed) elements.toggleListHandle.innerHTML = getHistorySVG();
+
+  // Update clock button next to New Chat to reflect collapsed state
+  if (elements.toggleClockBtn) {
+    elements.toggleClockBtn.setAttribute('aria-pressed', String(collapsed));
+    // simple visual cue: change opacity when active
+    elements.toggleClockBtn.style.opacity = collapsed ? '0.95' : '0.8';
   }
 
   // Mobile toggle should remain available for small screens
   if (elements.toggleListMobile) {
     elements.toggleListMobile.style.display = 'none';
   }
-}
-
-function getHistorySVG() {
-  return `
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.5"></circle>
-      <path d="M12 7v5l3 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path>
-    </svg>
-  `;
 }
 
 function autoResizeTextarea() {
