@@ -926,8 +926,8 @@ async function importLinkedInProfile() {
     }
     
   } catch (error) {
-    console.error('LinkedIn Import失败:', error);
-    alert('Import失败: ' + error.message);
+    console.error('LinkedIn Import Failed:', error);
+    alert('Import failed: ' + error.message);
   } finally {
     hideTypingIndicator();
   }
