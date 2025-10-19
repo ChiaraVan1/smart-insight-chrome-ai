@@ -863,10 +863,21 @@ async function importLinkedInProfile() {
     // Check if on LinkedIn page
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
-    if (!tab.url.includes('linkedin.com')) {
+    if (!tab || !tab.url) {
       alert('Please use this feature on LinkedIn pages');
       return;
     }
+
+    if (!tab.url.includes('linkedin.com')) {
+      alert('Please open a LinkedIn page before importing.');
+      return;
+    }
+
+    if (!tab.url.includes('linkedin.com/in/')) {
+      showToast('⚠️ Currently only personal profile pages are supported', 'warning');
+      return;
+    }
+
 
     // Hide the import toast notification on the LinkedIn page
     try {
