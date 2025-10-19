@@ -859,6 +859,13 @@ async function handleQuickAction(action) {
 }
 
 async function importLinkedInProfile() {
+  // 改
+  const url = tabInfo?.url || '';
+  if (!url.includes || !url.includes('linkedin.com/in/')) {
+    alert('Please open a LinkedIn profile page before importing.');
+    return;
+  }
+  
   try {
     // Check if on LinkedIn page
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
