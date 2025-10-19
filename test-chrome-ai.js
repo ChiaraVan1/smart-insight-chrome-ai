@@ -114,7 +114,7 @@ class ChromeAITester {
 
         const testText = `
         SmartInsight Career Assistant 是一个基于 Chrome Built-in AI 的求职助手扩展。
-        它可以分析 LinkedIn 个人资料，提供破冰开场白和深度问题建议。
+        它可以分析 LinkedIn 个人资料，ProvideIcebreaker和Deep Questions建议。
         该工具完全在本地处理数据，保护用户隐私，无需任何 API 密钥。
         支持离线使用，响应速度快，完全免费。
         `;

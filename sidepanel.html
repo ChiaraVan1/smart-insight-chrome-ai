@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -630,11 +630,11 @@
       </div>
     </div>
     <div style="display:flex;align-items:center;gap:8px;">
-      <button class="icon-btn" id="toggleClockBtn" title="打开/关闭对话列表" style="background:none;border:none;color:white;font-size:18px;cursor:pointer;padding:6px;">
+      <button class="icon-btn" id="toggleClockBtn" title="Toggle chat list" style="background:none;border:none;color:white;font-size:18px;cursor:pointer;padding:6px;">
         ⏱️
       </button>
       <button class="new-chat-btn" id="newChatBtn">
-        ✨ 新对话
+        ✨ New Chat
       </button>
     </div>
   </div>
@@ -644,7 +644,7 @@
     <!-- 左侧聊天列表 (默认折叠) -->
     <div class="chat-list-panel collapsed" id="chatListPanel">
       <div class="chat-list-header">
-        <span class="chat-list-title">对话历史</span>
+        <span class="chat-list-title">Chat History</span>
         <!-- 展开时显示一个圈中带时钟的图标 -->
         <button class="toggle-list-btn" id="toggleListBtn">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -667,7 +667,7 @@
           <div class="chat-target-info">
             <div class="chat-target-avatar" id="targetAvatar">?</div>
             <div class="chat-target-details">
-              <h3 id="targetName">选择一个对话</h3>
+              <h3 id="targetName">Select a conversation</h3>
               <p id="targetRole">-</p>
             </div>
           </div>
@@ -687,12 +687,12 @@
         <div class="scenario-toolbar-header">
           <div class="scenario-toolbar-title">
             <span id="scenarioIcon">☕</span>
-            <span id="scenarioTitle">Coffee Chat 模式</span>
+            <span id="scenarioTitle">Coffee Chat Mode</span>
           </div>
           <button class="close-toolbar-btn" id="closeToolbar">✕</button>
         </div>
         <div class="scenario-toolbar-content" id="scenarioContent">
-          正在准备 Coffee Chat 建议...
+          Preparing Coffee Chat suggestions...
         </div>
       </div>
 
@@ -701,23 +701,18 @@
         <!-- 空状态 -->
         <div class="empty-state" id="emptyState">
           <div class="empty-state-icon">💬</div>
-          <h3>开始你的职业对话</h3>
-          <p>选择场景，让AI帮你准备完美的交流策略</p>
+          <h3>Start Your Career Conversation</h3>
+          <p>Choose a scenario to begin. AI will automatically import LinkedIn data.</p>
           <div class="quick-actions">
-            <div class="quick-action-card" data-action="linkedin-import">
-              <div class="quick-action-icon">📋</div>
-              <div class="quick-action-title">导入LinkedIn</div>
-              <div class="quick-action-desc">一键读取当前页面信息</div>
-            </div>
             <div class="quick-action-card" data-action="coffee-chat">
               <div class="quick-action-icon">☕</div>
               <div class="quick-action-title">Coffee Chat</div>
-              <div class="quick-action-desc">30-60分钟深度交流</div>
+              <div class="quick-action-desc">30-60 min deep conversation</div>
             </div>
             <div class="quick-action-card" data-action="networking">
               <div class="quick-action-icon">🤝</div>
               <div class="quick-action-title">Networking</div>
-              <div class="quick-action-desc">Career Fair快速攻略</div>
+              <div class="quick-action-desc">Quick Career Fair strategy</div>
             </div>
           </div>
         </div>
@@ -730,12 +725,12 @@
             <textarea 
               class="chat-input" 
               id="chatInput" 
-              placeholder="输入消息或问题..."
+              placeholder="Type a message or question..."
               rows="1"
             ></textarea>
           </div>
           <button class="send-btn" id="sendBtn">
-            <span>发送</span>
+            <span>Send</span>
             <span>➤</span>
           </button>
         </div>

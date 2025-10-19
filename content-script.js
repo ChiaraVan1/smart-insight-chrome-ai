@@ -1,47 +1,87 @@
-// content-script.js - 增强版内容脚本
-// 集成LinkedIn采集、侧边栏UI和智能分析功能
+// content-script.js - Enhanced content script
+// Integrates LinkedIn scraping, sidebar UI and intelligent analysis
 
 // ========================================
-// 智能导入检测器 - P0-1
+// Smart Import Detector - P0-1
 // ========================================
 class SmartImportDetector {
   constructor() {
     this.lastUrl = '';
     this.checkInterval = null;
     this.toastShown = false;
-    this.dismissedPages = new Set(); // 记录用户关闭过的页面
+    this.dismissedPages = new Set(); // Track pages dismissed by user
+    this.modelReady = false; // Model ready status
+    this.modelCheckAttempts = 0; // Model check attempt count
+    this.maxModelCheckAttempts = 10; // Max 10 checks
   }
   
   init() {
-    console.log('🎯 智能导入检测器已启动');
+    console.log('🎯 Smart Import Detector已启动');
     
-    // 监听URL变化
+    // Check model status first
+    this.checkModelStatus();
+    
+    // Listen for URL changes
     this.checkInterval = setInterval(() => {
       if (window.location.href !== this.lastUrl) {
         this.lastUrl = window.location.href;
-        this.toastShown = false; // 重置提示状态
+        this.toastShown = false; // Reset prompt status
         
-        // 延迟检测，等待页面加载
+        // Delay detection, wait for page load
         setTimeout(() => this.detectAndPrompt(), 2000);
       }
     }, 1000);
     
-    // 首次检测
-    setTimeout(() => this.detectAndPrompt(), 3000);
+    // First detection (longer delay to ensure model has time to initialize)
+    setTimeout(() => this.detectAndPrompt(), 5000);
+  }
+  
+  async checkModelStatus() {
+    console.log('🔍 Checking Chrome AI model status...');
+    
+    try {
+      const response = await chrome.runtime.sendMessage({ action: 'CHECK_MODEL_STATUS' });
+      
+      if (response && response.status === 'ready') {
+        this.modelReady = true;
+        console.log('✅ Chrome AI model ready');
+      } else {
+        console.log('⏳ Chrome AI model not ready, status:', response?.status);
+        
+        // If model not ready and max attempts not exceeded, continue checking
+        if (this.modelCheckAttempts < this.maxModelCheckAttempts) {
+          this.modelCheckAttempts++;
+          setTimeout(() => this.checkModelStatus(), 3000); // Retry in 3 seconds
+        } else {
+          console.warn('⚠️ Chrome AI model check timeout, will continue but functionality may be limited');
+          // Set to true even on timeout, let user try
+          this.modelReady = true;
+        }
+      }
+    } catch (error) {
+      console.error('❌ Failed to check model status:', error);
+      // Set to true on error to avoid complete blocking
+      this.modelReady = true;
+    }
   }
   
   detectAndPrompt() {
     const pageType = this.detectPageType();
     const currentUrl = window.location.href;
     
-    // 如果用户已经关闭过这个页面的提示，不再显示
+    // Don't show again if user dismissed this page's prompt
     if (this.dismissedPages.has(currentUrl)) {
       return;
     }
     
-    if (pageType && !this.toastShown) {
+    // Only show prompt when model is ready
+    if (pageType && !this.toastShown && this.modelReady) {
       this.showImportPrompt(pageType);
       this.toastShown = true;
+    } else if (pageType && !this.modelReady) {
+      console.log('⏳ Detected importable page, but Chrome AI model not ready, retry later...');
+      // Retry later when model not ready
+      setTimeout(() => this.detectAndPrompt(), 2000);
     }
   }
   
@@ -53,12 +93,12 @@ class SmartImportDetector {
   }
   
   showImportPrompt(type) {
-    // 避免重复显示
+    // Avoid duplicate display
     if (document.getElementById('smartinsight-import-toast')) {
       return;
     }
     
-    const typeText = type === 'profile' ? '个人资料' : '公司页面';
+    const typeText = type === 'profile' ? 'Profile' : 'Company Page';
     const icon = type === 'profile' ? '👤' : '🏢';
     
     const toast = document.createElement('div');
@@ -67,15 +107,15 @@ class SmartImportDetector {
       <div class="toast-content">
         <span class="toast-icon">${icon}</span>
         <div class="toast-body">
-          <div class="toast-title">检测到 ${typeText}</div>
-          <div class="toast-subtitle">一键导入到 SmartInsight 对话模式</div>
+          <div class="toast-title">Detected ${typeText}</div>
+          <div class="toast-subtitle">One-click import to SmartInsight chat mode</div>
         </div>
-        <button class="toast-import-btn">✨ 导入</button>
+        <button class="toast-import-btn">✨ Import</button>
         <button class="toast-close">×</button>
       </div>
     `;
     
-    // 样式
+    // Styles
     const style = document.createElement('style');
     style.textContent = `
       #smartinsight-import-toast {
@@ -173,19 +213,19 @@ class SmartImportDetector {
     document.head.appendChild(style);
     document.body.appendChild(toast);
     
-    // 点击导入
+    // ClickImport
     toast.querySelector('.toast-import-btn').onclick = () => {
       this.triggerImport(type);
       toast.remove();
     };
     
-    // 关闭
+    // Close
     toast.querySelector('.toast-close').onclick = () => {
       this.dismissedPages.add(window.location.href);
       toast.remove();
     };
     
-    // 5秒后自动消失
+    // Auto-dismiss after 5 seconds
     setTimeout(() => {
       if (toast.parentNode) {
         toast.style.animation = 'slideIn 0.3s ease-out reverse';
@@ -193,24 +233,31 @@ class SmartImportDetector {
       }
     }, 5000);
     
-    console.log('✅ 显示导入提示:', typeText);
+    console.log('✅ 显示ImportNotification:', typeText);
   }
   
   async triggerImport(type) {
-    console.log('🚀 触发自动导入:', type);
+    console.log('🚀 触发自动Import:', type);
+    
+    // Check model status again
+    if (!this.modelReady) {
+      console.warn('⚠️ Chrome AI模型未就绪，无法Import');
+      this.showErrorToast('Chrome AI model initializing, please try again later');
+      return;
+    }
     
     try {
-      // 显示加载提示
+      // Show loading prompt
       this.showLoadingToast();
       
-      // 打开 Side Panel
+      // Open Side Panel
       await chrome.runtime.sendMessage({
         action: 'OPEN_SIDE_PANEL'
       });
       
-      // 延迟一下，确保 Side Panel 已打开
+      // Delay to ensure Side Panel is open
       setTimeout(async () => {
-        // 触发导入
+        // Trigger import
         await chrome.runtime.sendMessage({
           action: 'AUTO_IMPORT_LINKEDIN',
           type: type,
@@ -221,9 +268,9 @@ class SmartImportDetector {
       }, 500);
       
     } catch (error) {
-      console.error('❌ 自动导入失败:', error);
+      console.error('❌ Auto import failed:', error);
       this.hideLoadingToast();
-      this.showErrorToast('导入失败，请手动打开 Side Panel 后点击导入');
+      this.showErrorToast('Import失败，请手动Open Side Panel 后ClickImport');
     }
   }
   
@@ -233,7 +280,7 @@ class SmartImportDetector {
     loading.innerHTML = `
       <div style="display: flex; align-items: center; gap: 12px;">
         <div class="spinner"></div>
-        <span>正在导入数据...</span>
+        <span>正在Import数据...</span>
       </div>
     `;
     loading.style.cssText = `
@@ -297,6 +344,14 @@ class SmartImportDetector {
     setTimeout(() => error.remove(), 3000);
   }
   
+  hideImportToast() {
+    const toast = document.getElementById('smartinsight-import-toast');
+    if (toast) {
+      toast.remove();
+      console.log('✅ Import toast hidden');
+    }
+  }
+  
   destroy() {
     if (this.checkInterval) {
       clearInterval(this.checkInterval);
@@ -304,38 +359,38 @@ class SmartImportDetector {
   }
 }
 
-// 实例化检测器
-const smartImportDetector = new SmartImportDetector();
+// Instantiate detector and expose globally (disabled for now)
+// const smartImportDetector = new SmartImportDetector();
+// window.smartImportDetector = smartImportDetector;
 
 // ========================================
-// 原有代码
+// Original code
 // ========================================
 
-// 實入模块
-let LinkedInScraper, CareerSidebar, WorkflowEngine, AIManager;
+// Import modules
+let LinkedInScraper, WorkflowEngine, AIManager;
 
-// 全局状态
-let sidebar = null;
+// Global state
 let isAnalyzing = false;
 let currentPageData = null;
 
-// 初始化
+// Initialization
 async function init() {
     try {
-        // 动态导入模块
+        // 动态Import模块
         await loadModules();
         
-        // 检测页面类型
+        // Detect page type
         const pageType = detectPageType();
         
         if (pageType === 'linkedin_profile') {
-            // LinkedIn个人页面
+            // LinkedIn profile page
             await initLinkedInProfileAnalysis();
         } else if (pageType === 'linkedin_company') {
-            // LinkedIn公司页面
+            // LinkedInCompany Page
             await initLinkedInCompanyAnalysis();
         } else if (pageType === 'company_website') {
-            // 公司官网
+            // Company website
             await initCompanyWebsiteAnalysis();
         }
         
@@ -346,19 +401,16 @@ async function init() {
     }
 }
 
-// 动态加载模块
+// Dynamically load modules
 async function loadModules() {
-    // 这里需要根据实际的模块加载方式调整
+    // Adjust based on actual module loading method
     if (window.LinkedInScraper) {
         LinkedInScraper = window.LinkedInScraper;
     }
-    if (window.CareerSidebar) {
-        CareerSidebar = window.CareerSidebar;
-    }
-    // 其他模块类似处理
+    // Handle other modules similarly
 }
 
-// 检测页面类型
+// Detect page type
 function detectPageType() {
     const hostname = window.location.hostname;
     const pathname = window.location.pathname;
@@ -371,7 +423,7 @@ function detectPageType() {
         }
     }
     
-    // 检测是否为公司官网
+    // 检测是否为Company website
     const companyIndicators = [
         'about', 'careers', 'jobs', 'team', 'company',
         '关于', '招聘', '团队', '公司'
@@ -389,37 +441,27 @@ function detectPageType() {
     return 'unknown';
 }
 
-// LinkedIn个人页面分析初始化
+// LinkedIn profile page分析Initialization
 async function initLinkedInProfileAnalysis() {
-    // 创建侧边栏
-    if (!sidebar) {
-        sidebar = new CareerSidebar();
-    }
-    
-    // 添加分析按钮到页面
-    addAnalysisButton('分析此人', analyzeLinkedInProfile);
+    // No longer need sidebar - using side panel instead
+    console.log('✅ LinkedIn profile page detected - ready for import');
     
     // 监听页面变化
     observePageChanges();
 }
 
-// LinkedIn公司页面分析初始化
+// LinkedInCompany Page分析Initialization
 async function initLinkedInCompanyAnalysis() {
-    if (!sidebar) {
-        sidebar = new CareerSidebar();
-    }
+    // No longer need sidebar - using side panel instead
+    console.log('✅ LinkedIn company page detected - ready for import');
     
-    addAnalysisButton('分析公司', analyzeLinkedInCompany);
     observePageChanges();
 }
 
-// 公司网站分析初始化
+// 公司网站分析Initialization
 async function initCompanyWebsiteAnalysis() {
-    if (!sidebar) {
-        sidebar = new CareerSidebar();
-    }
-    
-    addAnalysisButton('分析网站', analyzeCompanyWebsite);
+    // No longer need sidebar - using side panel instead
+    console.log('✅ Company website detected - ready for analysis');
 }
 
 // 添加分析按钮
@@ -462,46 +504,10 @@ function addAnalysisButton(text, clickHandler) {
     document.body.appendChild(button);
 }
 
-// 分析LinkedIn个人资料
+// 分析LinkedInProfile (Legacy function - no longer used with side panel)
 async function analyzeLinkedInProfile() {
-    if (isAnalyzing) return;
-    
-    isAnalyzing = true;
-    updateAnalysisButton('分析中...', true);
-    
-    try {
-        // 显示侧边栏
-        sidebar.show();
-        
-        // 使用LinkedIn采集器获取数据
-        const scraper = new LinkedInScraper();
-        const profileData = await scraper.deepScrape();
-        
-        // 发送到background进行AI分析
-        const response = await chrome.runtime.sendMessage({
-            action: 'ANALYZE_PROFILE',
-            data: profileData,
-            context: {
-                pageUrl: window.location.href,
-                timestamp: Date.now()
-            }
-        });
-        
-        if (response.status === 'SUCCESS') {
-            // 在侧边栏显示结果
-            await sidebar.renderContent(response.data);
-            currentPageData = response.data;
-        } else {
-            throw new Error(response.message || '分析失败');
-        }
-        
-    } catch (error) {
-        console.error('Profile analysis failed:', error);
-        showErrorMessage('分析失败: ' + error.message);
-    } finally {
-        isAnalyzing = false;
-        updateAnalysisButton('分析此人', false);
-    }
+    console.log('⚠️ analyzeLinkedInProfile is deprecated - use side panel import instead');
+    // This function is no longer needed as we now use the side panel workflow
 }
 
 // 处理来自popup的消息
@@ -533,6 +539,14 @@ function handleMessage(request, sender, sendResponse) {
             handleLinkedInProfileScraping(sendResponse);
             return true; // 异步响应
             
+        case 'HIDE_IMPORT_TOAST':
+            // Hide the import notification toast (detector disabled, no action needed)
+            // if (window.smartImportDetector) {
+            //     window.smartImportDetector.hideImportToast();
+            // }
+            sendResponse({ status: 'SUCCESS' });
+            break;
+            
         case 'PING':
             sendResponse({ status: 'PONG', timestamp: Date.now() });
             break;
@@ -541,15 +555,15 @@ function handleMessage(request, sender, sendResponse) {
     return true; // 保持消息通道开放
 }
 
-// 处理LinkedIn个人资料抓取
+// 处理LinkedInProfile抓取
 async function handleLinkedInProfileScraping(sendResponse) {
     try {
-        console.log('开始LinkedIn数据抓取...');
-        console.log('当前URL:', window.location.href);
+        console.log('to startLinkedIn数据抓取...');
+        console.log('当firstURL:', window.location.href);
         
-        // 检查是否为LinkedIn个人资料页
+        // 检查是否为LinkedInProfile页
         if (!window.location.href.includes('linkedin.com/in/')) {
-            throw new Error('当前页面不是LinkedIn个人资料页');
+            throw new Error('当first页面不是LinkedInProfile页');
         }
         
         // 使用简化的数据抓取
@@ -622,7 +636,7 @@ async function extractLinkedInDataSimple() {
 
 // 提取基本信息
 async function extractBasicInfo(data) {
-    console.log('开始提取基本信息...');
+    console.log('to start提取基本信息...');
     
     // 通用方法：直接从页面标题和元信息提取
     const pageTitle = document.title;
@@ -700,11 +714,11 @@ async function extractBasicInfo(data) {
         }
     }
     
-    // 提取个人资料背景信息和座右铭
+    // 提取Profile背景信息和座右铭
     const backgroundText = document.body.textContent;
     const personalMottos = [];
     
-    // 查找常见的个人座右铭模式
+    // 查找常见的个人座右铭Mode
     const mottoPatterns = [
         /Believe & Inspire/i,
         /Always believe that you're capable of doing anything/i,
@@ -728,7 +742,7 @@ async function extractBasicInfo(data) {
 
 // 提取工作经历
 async function extractExperiences(data) {
-    console.log('开始提取工作经历...');
+    console.log('to start提取工作经历...');
     
     const pageText = document.body.textContent;
     
@@ -774,7 +788,7 @@ async function extractExperiences(data) {
         }
     });
     
-    // 设置当前职位（最新的工作经历）
+    // 设置当first职位（最新的工作经历）
     if (data.experiences.length > 0) {
         data.current_position = data.experiences[0];
     }
@@ -784,7 +798,7 @@ async function extractExperiences(data) {
 
 // 提取教育经历
 async function extractEducation(data) {
-    console.log('开始提取教育经历...');
+    console.log('to start提取教育经历...');
     
     const pageText = document.body.textContent;
     
@@ -839,7 +853,7 @@ async function extractEducation(data) {
                         school: match.includes('Concordia') ? 'Concordia University' : '南京航空航天大学',
                         degree: match.includes('Master') ? 'Master of Engineering' : "Bachelor's degree",
                         field: 'Engineering',
-                        duration: '时间未知'
+                        duration: '时间Unknown'
                     });
                 });
             }
@@ -851,7 +865,7 @@ async function extractEducation(data) {
 
 // 提取最近动态
 async function extractRecentActivity(data) {
-    console.log('开始提取最近动态...');
+    console.log('to start提取最近动态...');
     
     const pageText = document.body.textContent;
     
@@ -889,7 +903,7 @@ async function extractRecentActivity(data) {
 
 // 提取关注信息
 async function extractFollowing(data) {
-    console.log('开始提取关注信息...');
+    console.log('to start提取关注信息...');
     
     const pageText = document.body.textContent;
     
@@ -927,7 +941,7 @@ async function extractFollowing(data) {
 
 // 提取共同点分析
 async function extractCommonalities(data) {
-    console.log('开始提取共同点分析...');
+    console.log('to start提取共同点分析...');
     
     const bodyText = document.body.textContent;
     
@@ -1013,7 +1027,7 @@ function observePageChanges() {
     const observer = new MutationObserver((mutations) => {
         // 检测URL变化（SPA导航）
         if (window.location.href !== currentPageData?.pageUrl) {
-            // URL变化，重新初始化
+            // URL变化，重新Initialization
             setTimeout(init, 1000);
         }
     });
@@ -1032,15 +1046,13 @@ function extractPageContent() {
 // 确保消息监听器立即可用
 chrome.runtime.onMessage.addListener(handleMessage);
 
-// 启动初始化
+// 启动Initialization
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
         init();
-        smartImportDetector.init(); // 启动智能导入检测器
     });
 } else {
     init();
-    smartImportDetector.init(); // 启动智能导入检测器
 }
 
 // 向background script报告content script已加载

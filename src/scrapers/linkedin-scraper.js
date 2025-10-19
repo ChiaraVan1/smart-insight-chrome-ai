@@ -147,7 +147,7 @@ class LinkedInScraper {
         return basicInfo;
     }
 
-    // 当前职位信息
+    // 当first职位信息
     extractCurrentPosition() {
         const positionElement = this.getElementBySelectors(this.selectors.currentPosition);
         if (!positionElement) return null;
@@ -422,7 +422,7 @@ class LinkedInScraper {
             },
             basic_info: this.extractBasicInfo(),
             current_position: this.extractCurrentPosition(),
-            experiences: this.extractExperiences(3), // 只取前3个
+            experiences: this.extractExperiences(3), // 只取first3个
             education: this.extractEducation(),
             recent_activity: [],
             commonalities: this.extractCommonalities()

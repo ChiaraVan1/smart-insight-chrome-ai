@@ -1,27 +1,27 @@
 # 🏆 SmartInsight Career Assistant
 
-> **Chrome Built-in AI powered career assistant. 100% private LinkedIn analysis with Gemini Nano. Zero cost, offline-capable, instant insights.**
+> **Chrome Built-in AI powered career networking assistant. 100% private LinkedIn analysis with Gemini Nano. Zero cost, offline-capable, personalized conversation guides.**
 
 [![Chrome Extension](https://img.shields.io/badge/Chrome-Extension-blue?logo=google-chrome)](https://chrome.google.com/webstore)
 [![Built with Chrome AI](https://img.shields.io/badge/Built%20with-Chrome%20AI-4285F4?logo=google-chrome)](https://developer.chrome.com/docs/ai/built-in)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Version](https://img.shields.io/badge/version-3.0.0-green.svg)](https://github.com/your-repo/smart-insight-chrome-ai)
+[![Version](https://img.shields.io/badge/version-3.1.0-green.svg)](https://github.com/your-repo/smart-insight-chrome-ai)
 
 ---
 
 ## 🌟 Overview
 
-**SmartInsight** is an intelligent career assistant that leverages **Chrome's Built-in AI (Gemini Nano)** to provide personalized career guidance directly from LinkedIn profiles. Unlike traditional AI tools that send your data to external servers, SmartInsight processes everything **locally on your device** — ensuring complete privacy, zero cost, and offline capability.
+**SmartInsight** is an intelligent career networking assistant that leverages **Chrome's Built-in AI (Gemini Nano)** to generate personalized conversation guides for LinkedIn profiles. Unlike traditional AI tools that send your data to external servers, SmartInsight processes everything **locally on your device** — ensuring complete privacy, zero cost, and offline capability.
 
 ### ✨ Key Features
 
 - 🔒 **100% Private**: All AI processing happens locally on your device using Chrome's built-in Gemini Nano model
 - 💰 **Zero Cost**: No API keys, no subscriptions, completely free
-- ⚡ **Instant Analysis**: Real-time insights without network latency
+- ⚡ **Instant Analysis**: Real-time personalized questions without network latency
 - 🌐 **Offline Capable**: Works without internet connection once the model is downloaded
-- 🎯 **Smart Scenarios**: Tailored guidance for Coffee Chats and Networking events
-- 📊 **LinkedIn Integration**: One-click import of LinkedIn profile data
-- 💬 **Interactive Timeline**: Structured conversation guides with time segments
+- 🎯 **Smart Scenarios**: Tailored guidance for Coffee Chats (30-60 min) and Networking events (2-10 min)
+- 📊 **LinkedIn Integration**: Automatic profile data import
+- 💬 **Clean Text Output**: Simple, readable conversation guides
 - 📝 **Follow-up Templates**: AI-generated personalized email templates
 
 ---
@@ -76,11 +76,28 @@ Ideal for career fairs, conferences, and networking events:
 
 ### First Use
 
+**⚠️ Important for First-Time Users:**
+
+On your **first use**, Chrome needs to download the Gemini Nano model (~1.5GB). This happens automatically when you:
+- Install the extension
+- First open the Side Panel
+- First select a scenario
+
+**What to expect:**
+- 📥 You'll see a notification: "Chrome AI model downloading"
+- ⏱️ Download takes 5-15 minutes depending on your connection
+- 📊 Progress updates will appear in notifications
+- ✅ Once complete, you'll see: "AI model ready"
+
+**After the model is downloaded:**
+
 1. Visit any LinkedIn profile page (e.g., `https://www.linkedin.com/in/andrewyng/`)
-2. Look for the floating **"✨ 导入"** button in the bottom-right corner
-3. Click the button to import profile data
-4. The Side Panel will open automatically with AI-generated insights
-5. Choose your scenario (Coffee Chat or Networking) to get started
+2. Click the SmartInsight extension icon to open the Side Panel
+3. Choose your scenario: **☕ Coffee Chat** or **🤝 Networking**
+4. The extension will automatically import LinkedIn data
+5. AI generates personalized conversation guides instantly
+
+**Tip:** You can check model status by opening Chrome DevTools Console and looking for `✅ Chrome AI model ready` logs.
 
 ---
 
@@ -126,28 +143,29 @@ Ideal for career fairs, conferences, and networking events:
 
 ## 🎨 Features in Detail
 
-### 1. Smart Import
-- **Automatic Detection**: Detects LinkedIn profile pages automatically
-- **One-Click Import**: Floating button for instant data extraction
-- **Rich Data**: Extracts name, title, company, experience, education, skills
-- **Privacy First**: All data stays on your device
+### 1. Automatic LinkedIn Import
+- **Seamless Integration**: Automatically imports data when you select a scenario
+- **Rich Data Extraction**: Captures name, title, company, experience, education
+- **Privacy First**: All data stays on your device, never sent to external servers
+- **Smart Fallback**: Graceful error handling if not on LinkedIn page
 
-### 2. AI-Powered Analysis
-- **Scenario Recommendation**: Automatically suggests the best scenario based on profile
-- **Personalized Questions**: Generates specific questions referencing actual experience
-- **Context-Aware**: Uses real company names, projects, and roles from the profile
-- **Quality Scoring**: Each question is tagged with quality indicators
+### 2. AI-Powered Personalization
+- **Context-Aware Questions**: Generates specific questions referencing actual companies and roles
+- **Real Data Usage**: Uses actual names, companies, and experiences from the profile
+- **No Generic Templates**: Every question is tailored to the specific person
+- **Natural Language**: Questions written in conversational, professional tone
 
-### 3. Interactive Timeline
-- **Time-Segmented**: Questions organized by conversation phases
-- **Visual Design**: Clean, modern interface with emoji indicators
-- **Interactive Actions**: Favorite, note-taking, copy, and mark-as-used features
-- **Progress Tracking**: Visual indicators for used questions
+### 3. Structured Conversation Guides
+- **Time-Segmented**: Questions organized by conversation phases (Icebreaker → Insights → Advice)
+- **Clean Text Format**: Simple, readable output without complex UI
+- **Easy to Copy**: Plain text format perfect for note-taking or printing
+- **Follow-up Emails**: Personalized email templates included
 
-### 4. Follow-up Tools
-- **Email Templates**: Personalized thank-you and follow-up emails
-- **Pitch Practice**: Interactive elevator pitch generator for networking
-- **Contact Scripts**: Professional ways to exchange contact information
+### 4. Two Optimized Scenarios
+- **Coffee Chat Mode**: 3 sections covering 45 minutes of deep conversation
+- **Networking Mode**: Quick strategy for 2-10 minute interactions at career fairs
+- **Scenario-Specific**: Questions and advice tailored to each context
+- **Professional Guidance**: Includes what to avoid and best practices
 
 ---
 
@@ -204,20 +222,23 @@ See [TESTING_GUIDE.md](TESTING_GUIDE.md) for comprehensive testing instructions.
 ### Quick Test
 
 1. Visit `https://www.linkedin.com/in/andrewyng/`
-2. Click the floating import button
-3. Verify AI generates personalized questions mentioning:
+2. Open SmartInsight Side Panel (click extension icon)
+3. Click **☕ Coffee Chat** or **🤝 Networking**
+4. Wait for automatic import and AI generation (5-10 seconds)
+5. Verify AI generates personalized questions mentioning:
    - ✅ Real name: "Andrew Ng"
-   - ✅ Real company: "DeepLearning.AI"
-   - ✅ Real role: "Founder"
+   - ✅ Real company: "DeepLearning.AI"  
+   - ✅ Real role: "Founder & CEO"
    - ❌ No placeholders like `[Company Name]` or `[Project]`
 
 ### Common Issues
 
 | Issue | Solution |
 |-------|----------|
-| Import button not appearing | Refresh the LinkedIn page, check Console for errors |
+| "Please navigate to LinkedIn profile page" | Make sure you're on a LinkedIn profile page (URL contains `/in/`) |
 | AI generation timeout | Wait up to 120 seconds, check Chrome AI flags are enabled |
-| Generic questions instead of personalized | Verify profile data was imported correctly in Console |
+| Generic questions | Verify profile data was imported correctly in Console logs |
+| Model download stuck | Check `chrome://components/` and manually trigger Optimization Guide download |
 
 ---
 

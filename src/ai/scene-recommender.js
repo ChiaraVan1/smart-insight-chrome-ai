@@ -68,7 +68,7 @@ class SceneRecommender {
       coffeeScore += 2;
       const items = [];
       if (commonalities.sameSchool) items.push('校友');
-      if (commonalities.sameCompany) items.push('前同事');
+      if (commonalities.sameCompany) items.push('first同事');
       if (commonalities.mutualConnections > 0) items.push(`${commonalities.mutualConnections}个共同好友`);
       reasons.push(`🔗 有共同点(${items.join('、')})，容易建立信任`);
     } else {

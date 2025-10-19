@@ -1,11 +1,11 @@
 // pitch-trainer.js - Pitch 练习器
-// P1-4: 为 Networking 场景提供互动式 Pitch 练习
+// P1-4: 为 Networking 场景Provide互动式 Pitch 练习
 
 class PitchTrainer {
   constructor() {
     this.timer = null;
     this.startTime = null;
-    this.duration = 120; // 2分钟
+    this.duration = 120; // 2minutes
     this.isRecording = false;
     this.transcript = '';
   }
@@ -22,7 +22,7 @@ class PitchTrainer {
       <div class="pitch-trainer">
         <div class="trainer-header">
           <h3>🎤 Pitch 练习器</h3>
-          <p class="trainer-desc">练习你的2分钟自我介绍，确保流畅自然</p>
+          <p class="trainer-desc">练习你的2minutes自我介绍，确保流畅自然</p>
         </div>
         
         <div class="pitch-script-section">
@@ -69,7 +69,7 @@ class PitchTrainer {
           <h4>💡 练习技巧</h4>
           <ul>
             <li><strong>语速控制</strong>：不要太快，保持自然节奏</li>
-            <li><strong>眼神交流</strong>：想象对方在你面前，保持眼神接触</li>
+            <li><strong>眼神交流</strong>：想象对方在你面first，保持眼神接触</li>
             <li><strong>关键信息</strong>：确保提到背景、技能、兴趣点</li>
             <li><strong>自然结尾</strong>：以问题或请求结束，引导对话</li>
           </ul>
@@ -439,9 +439,9 @@ class PitchTrainer {
     
     // 时间反馈
     if (elapsed < 90) {
-      feedback += `<div class="feedback-item"><span class="feedback-icon">⚠️</span><span>练习时间较短（${elapsed}秒），建议充分利用2分钟</span></div>`;
+      feedback += `<div class="feedback-item"><span class="feedback-icon">⚠️</span><span>练习时间较短（${elapsed}秒），建议充分利用2minutes</span></div>`;
     } else if (elapsed > 130) {
-      feedback += `<div class="feedback-item"><span class="feedback-icon">⚠️</span><span>超时了（${elapsed}秒），注意控制在2分钟内</span></div>`;
+      feedback += `<div class="feedback-item"><span class="feedback-icon">⚠️</span><span>超时了（${elapsed}秒），注意控制在2minutes内</span></div>`;
     } else {
       feedback += `<div class="feedback-item"><span class="feedback-icon">✅</span><span>时间控制很好（${elapsed}秒）</span></div>`;
     }

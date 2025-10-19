@@ -1,5 +1,5 @@
 // chrome-ai-setup-guide.js - Chrome AI 设置指导组件
-// 检测 Chrome AI 可用性并提供用户友好的设置指导
+// 检测 Chrome AI 可用性并Provide用户友好的设置指导
 
 class ChromeAISetupGuide {
     constructor() {
@@ -117,7 +117,7 @@ class ChromeAISetupGuide {
             <div class="setup-container">
                 <div class="setup-header">
                     <h2>🤖 启用 Chrome AI 功能</h2>
-                    <p>SmartInsight 需要 Chrome 内置 AI 来提供隐私保护的分析服务</p>
+                    <p>SmartInsight 需要 Chrome 内置 AI 来Provide隐私保护的分析服务</p>
                     <button class="close-btn" onclick="this.closest('.chrome-ai-setup-modal').remove()">×</button>
                 </div>
                 
@@ -243,7 +243,7 @@ class ChromeAISetupGuide {
         await this.processCurrentStep();
     }
 
-    // 处理当前步骤
+    // 处理当first步骤
     async processCurrentStep() {
         if (this.currentStep >= this.setupSteps.length) {
             this.showCompletionMessage();
@@ -302,7 +302,7 @@ class ChromeAISetupGuide {
     async restartBrowserStep() {
         this.showMessage('请重启 Chrome 浏览器以应用设置');
         
-        // 提供重启提醒
+        // Provide重启提醒
         setTimeout(() => {
             if (confirm('设置完成后，请重启 Chrome 浏览器。\n\n点击确定继续，取消稍后重启。')) {
                 this.completeStep();
@@ -327,7 +327,7 @@ class ChromeAISetupGuide {
         }, 3000);
     }
 
-    // 完成当前步骤
+    // 完成当first步骤
     completeStep() {
         const stepElement = document.querySelector(`[data-step="${this.currentStep}"]`);
         if (stepElement) {

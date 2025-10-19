@@ -231,48 +231,48 @@ class ChromeAIManager {
     }
 
     buildProfileAnalysisPrompt(profileData) {
-        return `作为专业的求职顾问，请分析以下LinkedIn个人资料并提供求职建议：
+        return `As a professional career consultant, please analyze the following LinkedIn profile and provide career advice:
 
-个人信息：
-- 姓名：${profileData.basic_info?.name || '未提供'}
-- 职位：${profileData.basic_info?.headline || '未提供'}
-- 当前公司：${profileData.current_position?.company || '未提供'}
+Personal Information:
+- Name:${profileData.basic_info?.name || 'Not provided'}
+- Position:${profileData.basic_info?.headline || 'Not provided'}
+- Current Company:${profileData.current_position?.company || 'Not provided'}
 
-工作经历：
-${profileData.experiences?.map(exp => `- ${exp.title} at ${exp.company} (${exp.duration})`).join('\n') || '未提供'}
+Work Experience:
+${profileData.experiences?.map(exp => `- ${exp.title} at ${exp.company} (${exp.duration})`).join('\n') || 'Not provided'}
 
-教育背景：
-${profileData.education?.map(edu => `- ${edu.degree} in ${edu.field} from ${edu.school}`).join('\n') || '未提供'}
+Education:
+${profileData.education?.map(edu => `- ${edu.degree} in ${edu.field} from ${edu.school}`).join('\n') || 'Not provided'}
 
-请提供以下分析：
+Please provide the following analysis:
 
-1. **关键亮点** (3个要点)
-2. **破冰开场白** (1-2句自然的对话开场)
-3. **深度问题** (3个可以深入交流的问题)
-4. **速记卡片** (3个关键记忆点)
-5. **后续邮件模板** (专业的跟进邮件)
+1. **Key Highlights** (3 key points)
+2. **Icebreaker** (1-2 natural conversation opener)
+3. **Deep Questions** (3 questions for deep discussion)
+4. **Quick Notes** (3 key memory points)
+5. **Follow-up Email Template** (professional follow-up email)
 
-请确保建议实用、自然且专业。`;
+Please ensure advice is practical, natural and professional.`;
     }
 
     buildCompanyAnalysisPrompt(companyData) {
-        return `作为求职分析师，请分析以下公司信息并提供面试准备建议：
+        return `As a career analyst, please analyze the following company information and provide interview preparation advice:
 
-公司名称：${companyData.companyName || '未提供'}
-目标职位：${companyData.targetPosition || '未提供'}
-公司网址：${companyData.companyUrl || '未提供'}
-额外信息：${companyData.additionalInfo || '未提供'}
+Company Name:${companyData.companyName || 'Not provided'}
+目标Position:${companyData.targetPosition || 'Not provided'}
+Company Website:${companyData.companyUrl || 'Not provided'}
+Additional Info:${companyData.additionalInfo || 'Not provided'}
 
-请提供以下分析：
+Please provide the following analysis:
 
-1. **公司定位** (1句话概括)
-2. **发展时间线** (关键发展阶段)
-3. **核心团队** (领导层特点)
-4. **竞争优势** (市场地位分析)
-5. **面试建议** (具体准备要点)
-6. **问题建议** (3个可以向面试官提问的问题)
+1. **Company Positioning** (1 sentence summary)
+2. **Development Timeline** (key development stages)
+3. **Core Team** (leadership characteristics)
+4. **Competitive Advantage** (market position analysis)
+5. **Interview Tips** (specific preparation points)
+6. **Suggested Questions** (3 questions to ask the interviewer)
 
-请确保分析客观、实用且有针对性。`;
+Please ensure analysis is objective, practical and targeted.`;
     }
 
     parseProfileAnalysis(rawResult) {
@@ -347,21 +347,21 @@ ${profileData.education?.map(edu => `- ${edu.degree} in ${edu.field} from ${edu.
     }
 
     extractKeyPoints(sections) {
-        const keyPointsText = sections['关键亮点'] || sections['key highlights'] || '';
+        const keyPointsText = sections['Key Highlights'] || sections['key highlights'] || '';
         return keyPointsText.split('\n').filter(line => line.trim()).slice(0, 3);
     }
 
     extractGoldenQuote(sections) {
-        const icebreakerText = sections['破冰开场白'] || sections['icebreaker'] || '';
+        const icebreakerText = sections['Icebreaker'] || sections['icebreaker'] || '';
         return icebreakerText.split('\n')[0] || '准备充分的对话是成功网络建设的开始';
     }
 
     extractIcebreaker(sections) {
-        return sections['破冰开场白'] || sections['icebreaker'] || '很高兴认识您，我对您在该领域的经验很感兴趣。';
+        return sections['Icebreaker'] || sections['icebreaker'] || '很高兴认识您，我对您在该领域的经验很感兴趣。';
     }
 
     extractQuestions(sections) {
-        const questionsText = sections['深度问题'] || sections['deep questions'] || '';
+        const questionsText = sections['Deep Questions'] || sections['deep questions'] || '';
         const questionLines = questionsText.split('\n').filter(line => line.trim());
         
         return questionLines.slice(0, 3).map((question, index) => ({
@@ -373,7 +373,7 @@ ${profileData.education?.map(edu => `- ${edu.degree} in ${edu.field} from ${edu.
     }
 
     extractEmailDraft(sections) {
-        const emailText = sections['后续邮件模板'] || sections['follow-up email'] || '';
+        const emailText = sections['Follow-up Email Template'] || sections['follow-up email'] || '';
         return {
             subject: '很高兴认识您',
             body: emailText || '感谢今天的愉快交流，期待未来有机会进一步合作。',
@@ -383,27 +383,27 @@ ${profileData.education?.map(edu => `- ${edu.degree} in ${edu.field} from ${edu.
     }
 
     extractPositioning(sections) {
-        return sections['公司定位'] || sections['company positioning'] || '创新型行业领先企业';
+        return sections['Company Positioning'] || sections['company positioning'] || '创新型行业领先企业';
     }
 
     extractTimeline(sections) {
-        return sections['发展时间线'] || sections['timeline'] || '稳步发展，持续创新';
+        return sections['Development Timeline'] || sections['timeline'] || '稳步发展，持续创新';
     }
 
     extractKeyPeople(sections) {
-        return sections['核心团队'] || sections['key people'] || '经验丰富的管理团队';
+        return sections['Core Team'] || sections['key people'] || '经验丰富的管理团队';
     }
 
     extractCompetition(sections) {
-        return sections['竞争优势'] || sections['competitive advantage'] || '在行业中具有独特优势';
+        return sections['Competitive Advantage'] || sections['competitive advantage'] || '在行业中具有独特优势';
     }
 
     extractInterviewTips(sections) {
-        return sections['面试建议'] || sections['interview tips'] || '展示相关技能和经验，表达对公司的兴趣';
+        return sections['Interview Tips'] || sections['interview tips'] || '展示相关技能和经验，表达对公司的兴趣';
     }
 
     extractSuggestedQuestions(sections) {
-        const questionsText = sections['问题建议'] || sections['suggested questions'] || '';
+        const questionsText = sections['Suggested Questions'] || sections['suggested questions'] || '';
         return questionsText.split('\n').filter(line => line.trim()).slice(0, 3);
     }
 

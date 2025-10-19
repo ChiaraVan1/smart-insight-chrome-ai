@@ -1,14 +1,14 @@
 // sidepanel.js - SmartInsight Chat Interface
-// 对话式界面，支持 Coffee Chat 和 Networking 场景
+// Conversational interface supporting Coffee Chat 和 Networking scenarios
 
 // ========================================
-// 状态管理
+// State Management
 // ========================================
 const AppState = {
   currentChatId: null,
   currentScenario: null, // 'coffee-chat' or 'networking'
-  chats: [], // 所有对话记录
-  currentTarget: null, // 当前目标人物信息
+  chats: [], // All conversation records
+  currentTarget: null, // 当firstTarget Person Information
   isLoading: false
 };
 
@@ -16,36 +16,36 @@ const AppState = {
 // DOM 元素引用
 // ========================================
 const elements = {
-  // 聊天列表
+  // Chat List
   chatListPanel: document.getElementById('chatListPanel'),
   chatListContent: document.getElementById('chatListContent'),
   toggleListBtn: document.getElementById('toggleListBtn'),
   toggleListMobile: document.getElementById('toggleListMobile'),
   toggleClockBtn: document.getElementById('toggleClockBtn'),
   
-  // 聊天区域
+  // Chat Area
   chatHeader: document.getElementById('chatHeader'),
   chatMessages: document.getElementById('chatMessages'),
   emptyState: document.getElementById('emptyState'),
   chatPanel: document.querySelector('.chat-panel'),
   
-  // 目标信息
+  // Target Information
   targetAvatar: document.getElementById('targetAvatar'),
   targetName: document.getElementById('targetName'),
   targetRole: document.getElementById('targetRole'),
   
-  // 场景按钮
+  // scenarios按钮
   coffeeChatBtn: document.getElementById('coffeeChatBtn'),
   networkingBtn: document.getElementById('networkingBtn'),
   
-  // 场景工具栏
+  // scenarios工具栏
   scenarioToolbar: document.getElementById('scenarioToolbar'),
   scenarioIcon: document.getElementById('scenarioIcon'),
   scenarioTitle: document.getElementById('scenarioTitle'),
   scenarioContent: document.getElementById('scenarioContent'),
   closeToolbar: document.getElementById('closeToolbar'),
   
-  // 输入区域
+  // Input Area
   chatInput: document.getElementById('chatInput'),
   sendBtn: document.getElementById('sendBtn'),
   
@@ -54,7 +54,7 @@ const elements = {
 };
 
 // ========================================
-// 初始化
+// Initialization
 // ========================================
 document.addEventListener('DOMContentLoaded', () => {
   initializeApp();
@@ -63,67 +63,110 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function initializeApp() {
-  console.log('🚀 SmartInsight Chat 初始化...');
+  console.log('🚀 SmartInsight Chat Initialization...');
   
-  // 从 storage 加载聊天记录
+  // Listen for model download progress
+  chrome.runtime.onMessage.addListener((message) => {
+    if (message.action === 'MODEL_DOWNLOAD_PROGRESS') {
+      const progress = message.progress || 0;
+      if (progress < 100) {
+        showToast(`📥 AIModel downloading: ${progress}%`, 'info', 3000);
+      }
+    } else if (message.action === 'MODEL_READY') {
+      showToast('✅ AI model ready', 'success', 2000);
+    }
+  });
+  
+  // Proactively check model status
+  checkModelStatus();
+  
+  // Load chat history from storage
   chrome.storage.local.get(['chats', 'pendingImport'], (result) => {
     if (result.chats) {
       AppState.chats = result.chats;
       renderChatList();
     }
     
-    // 检查是否有待处理的导入
+    // Check for pending import
     if (result.pendingImport) {
-      console.log('📥 检测到待处理的导入:', result.pendingImport);
+      console.log('📥 Detected pending import:', result.pendingImport);
       
-      // 延迟执行导入，确保界面已加载
+      // Delay import execution to ensure UI is loaded
       setTimeout(() => {
         handlePendingImport(result.pendingImport);
-        // 清除待处理的导入
+        // Clear pending import
         chrome.storage.local.remove('pendingImport');
       }, 500);
     }
   });
   
-  // 检查是否在 LinkedIn 页面
+  // Check if on LinkedIn page
   checkLinkedInPage();
+  
+  // Proactively trigger model warmup (if not already done)
+  setTimeout(() => {
+    chrome.runtime.sendMessage({ action: 'OFFSCREEN_PING' })
+      .then(() => console.log('✅ Offscreen document is alive'))
+      .catch(() => console.log('⚠️ Offscreen document not responding'));
+  }, 1000);
 }
 
-// 处理待处理的导入
+// Check model status
+async function checkModelStatus() {
+  try {
+    const response = await chrome.runtime.sendMessage({ action: 'CHECK_MODEL_STATUS' });
+    console.log('🔍 Model status check result:', response);
+    
+    if (response && response.status === 'ready') {
+      console.log('✅ Chrome AI model ready');
+    } else if (response && response.status === 'checking') {
+      showToast('⏳ Chrome AI model initializing...', 'info', 3000);
+      // Check again in 3 seconds
+      setTimeout(() => checkModelStatus(), 3000);
+    } else {
+      console.warn('⚠️ Model status unknown:', response?.status);
+      showToast('⚠️ Checking Chrome AI model status...', 'warning', 2000);
+    }
+  } catch (error) {
+    console.error('❌ Failed to check model status:', error);
+  }
+}
+
+// Handle pending import
 async function handlePendingImport(pendingImport) {
   try {
-    console.log('🚀 执行待处理的导入...', pendingImport);
+    console.log('🚀 Executing pending import...', pendingImport);
     
-    // 如果没有当前对话，先创建一个
+    // If no current conversation, create one first
     if (!AppState.currentChatId) {
       createNewChat();
-      // 等待DOM更新
+      // Wait for DOM update
       await new Promise(resolve => setTimeout(resolve, 100));
     }
     
-    // 确保有当前对话
+    // Ensure current conversation exists
     if (!AppState.currentChatId) {
-      throw new Error('无法创建对话');
+      throw new Error('Unable to create conversation');
     }
     
-    // 触发导入
+    // Trigger import
     await importLinkedInProfile();
     
-    showToast('✅ 已自动导入 LinkedIn 数据', 'success');
+    showToast('✅ LinkedIn data imported automatically', 'success');
   } catch (error) {
-    console.error('处理待处理导入失败:', error);
-    showToast('❌ 自动导入失败: ' + error.message, 'error');
+    console.error('Failed to handle pending import:', error);
+    showToast('❌ Auto import failed: ' + error.message, 'error');
   }
 }
 
 // ========================================
-// 事件绑定
+// Event Binding
 // ========================================
 function bindEvents() {
-  // 新建对话
+  // New conversation
   elements.newChatBtn.addEventListener('click', createNewChat);
   
-  // 切换聊天列表
+  // 切换Chat List
   elements.toggleListBtn.addEventListener('click', toggleChatList);
   elements.toggleListMobile.addEventListener('click', toggleChatList);
   if (elements.toggleClockBtn) {
@@ -133,14 +176,14 @@ function bindEvents() {
   // sync toggle UI state initially
   updateToggleUI();
   
-  // 场景按钮
+  // scenarios按钮
   elements.coffeeChatBtn.addEventListener('click', () => activateScenario('coffee-chat'));
   elements.networkingBtn.addEventListener('click', () => activateScenario('networking'));
   
-  // 关闭场景工具栏
+  // Closescenarios工具栏
   elements.closeToolbar.addEventListener('click', closeScenarioToolbar);
   
-  // 发送消息
+  // Send message
   elements.sendBtn.addEventListener('click', sendMessage);
   elements.chatInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -149,10 +192,10 @@ function bindEvents() {
     }
   });
   
-  // 自动调整输入框高度
+  // Auto-resize textarea
   elements.chatInput.addEventListener('input', autoResizeTextarea);
   
-  // 快速操作卡片
+  // Quick action cards
   document.querySelectorAll('.quick-action-card').forEach(card => {
     card.addEventListener('click', (e) => {
       const action = e.currentTarget.dataset.action;
@@ -162,7 +205,7 @@ function bindEvents() {
 }
 
 // ========================================
-// 聊天列表管理
+// Chat List管理
 // ========================================
 function renderChatList() {
   elements.chatListContent.innerHTML = '';
@@ -170,13 +213,13 @@ function renderChatList() {
   if (AppState.chats.length === 0) {
     elements.chatListContent.innerHTML = `
       <div style="padding: 20px; text-align: center; color: #9ca3af; font-size: 13px;">
-        暂无对话记录<br>点击"新对话"开始
+        No conversations yet<br>Click"New Chat"to start
       </div>
     `;
     return;
   }
   
-  // 按时间倒序排列
+  // Sort by time descending
   const sortedChats = [...AppState.chats].sort((a, b) => b.updatedAt - a.updatedAt);
   
   sortedChats.forEach(chat => {
@@ -196,7 +239,7 @@ function createChatItem(chat) {
                chat.scenario === 'networking' ? '🤝' : '💬';
   
   const lastMessage = chat.messages[chat.messages.length - 1];
-  const preview = lastMessage ? lastMessage.content.substring(0, 50) : '新对话';
+  const preview = lastMessage ? lastMessage.content.substring(0, 50) : 'New Chat';
   
   const timeStr = formatTime(chat.updatedAt);
   
@@ -204,7 +247,7 @@ function createChatItem(chat) {
     <div class="chat-item-header">
       <div style="display:flex;align-items:center;gap:8px;">
         <span class="chat-item-icon">${icon}</span>
-        <span class="chat-item-name">${chat.targetName || '未命名对话'}</span>
+        <span class="chat-item-name">${chat.targetName || 'Unnamed conversation'}</span>
       </div>
       <button class="chat-delete-btn" title="Delete conversation" data-chat-id="${chat.id}">🗑</button>
     </div>
@@ -250,7 +293,7 @@ function createNewChat() {
 
   showToast('✅ New conversation created', 'success');
   
-  // 显示空状态
+  // Show empty state
   showEmptyState();
 }
 
@@ -273,13 +316,13 @@ function renderCurrentChat() {
     return;
   }
   
-  // 隐藏头部信息（不显示目标人物卡片）
+  // Hide header info (don't show target person card)
   elements.chatHeader.style.display = 'none';
   
-  // 更新场景按钮状态
+  // 更新scenarios按钮状态
   updateScenarioButtons();
   
-  // 渲染消息
+  // Render messages
   renderMessages();
 }
 
@@ -298,7 +341,7 @@ function renderMessages() {
     elements.chatMessages.appendChild(messageEl);
   });
   
-  // 滚动到底部
+  // Scroll to bottom
   scrollToBottom();
 }
 
@@ -312,7 +355,7 @@ function createMessageElement(message) {
   div.innerHTML = `
     <div class="message-avatar">${avatar}</div>
     <div class="message-content">
-      <div class="message-bubble">${escapeHtml(message.content)}</div>
+      <div class="message-bubble">${message.content}</div>
       <div class="message-time">${time}</div>
     </div>
   `;
@@ -327,27 +370,48 @@ function showEmptyState() {
 }
 
 // ========================================
-// 场景管理
+// scenarios管理
 // ========================================
-function activateScenario(scenario) {
+async function activateScenario(scenario) {
   const chat = getCurrentChat();
   if (!chat) {
-    alert('请先创建或选择一个对话');
+    // Create new chat if none exists
+    createNewChat();
+    // Wait for chat to be created
+    await new Promise(resolve => setTimeout(resolve, 100));
+  }
+  
+  const currentChat = getCurrentChat();
+  if (!currentChat) {
+    alert('Failed to create conversation');
     return;
   }
   
   AppState.currentScenario = scenario;
-  chat.scenario = scenario;
+  currentChat.scenario = scenario;
   
   updateScenarioButtons();
   showScenarioToolbar(scenario);
   
-  // 如果有目标人物信息，生成场景建议
-  if (chat.targetData) {
-    generateScenarioAdvice(scenario, chat.targetData);
-  }
-  
   saveChats();
+  
+  // Auto-trigger LinkedIn import if no target data exists
+  if (!currentChat.targetData) {
+    showToast('📥 Importing LinkedIn data...', 'info', 2000);
+    
+    // Delay to ensure UI updates
+    setTimeout(async () => {
+      try {
+        await importLinkedInProfile();
+      } catch (error) {
+        console.error('Auto-import failed:', error);
+        showToast('⚠️ Please navigate to a LinkedIn profile page', 'warning', 3000);
+      }
+    }, 300);
+  } else {
+    // If target data already exists, generate scenario advice
+    generateScenarioAdvice(scenario, currentChat.targetData);
+  }
 }
 
 function updateScenarioButtons() {
@@ -366,29 +430,29 @@ function showScenarioToolbar(scenario) {
   
   if (scenario === 'coffee-chat') {
     elements.scenarioIcon.textContent = '☕';
-    elements.scenarioTitle.textContent = 'Coffee Chat 模式';
+    elements.scenarioTitle.textContent = 'Coffee Chat Mode';
     elements.scenarioContent.innerHTML = `
-      <strong>30-60分钟深度交流策略</strong><br>
-      • 分层问题框架（破冰→行业洞察→个人建议）<br>
-      • 实时对话提示<br>
-      • 会后跟进邮件
+      <strong>30-60minutesdeep conversation strategy</strong><br>
+      • Layered question framework（Icebreaker→Industry Insights→Personal Advice）<br>
+      • Real-time conversation prompts<br>
+      • Post-meeting follow-up email
     `;
   } else if (scenario === 'networking') {
     elements.scenarioIcon.textContent = '🤝';
-    elements.scenarioTitle.textContent = 'Networking 模式';
+    elements.scenarioTitle.textContent = 'Networking Mode';
     elements.scenarioContent.innerHTML = `
-      <strong>Career Fair 2-10分钟快速攻略</strong><br>
-      • Elevator Pitch 脚本<br>
-      • 心机问题弹药库<br>
-      • 要联系方式话术
+      <strong>Career Fair 2-10minutesQuick Strategy</strong><br>
+      • Elevator Pitch script<br>
+      • Strategic Question Arsenal<br>
+      • Contact Exchange Scripts
     `;
   }
 }
 
-// 在 UI 中展示已导入的 Name（可被用户关闭）
+// 在 UI 中展示已Import的 Name（可被用户Close）
 function showImportedName(name) {
   if (!name) return;
-  // 移除旧的 banner
+  // Remove old banner
   const old = document.getElementById('imported-name-banner');
   if (old) old.remove();
 
@@ -417,15 +481,83 @@ function closeScenarioToolbar() {
   elements.scenarioToolbar.classList.remove('active');
 }
 
+// Convert AI's HTML output back to plain text format
+function convertHtmlToPlainText(htmlOutput) {
+  try {
+    // Create a temporary DOM element to parse HTML
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = htmlOutput;
+    
+    let plainText = '';
+    
+    // Extract section titles and questions
+    const sections = tempDiv.querySelectorAll('.timeline-section');
+    
+    sections.forEach(section => {
+      const titleElement = section.querySelector('.section-title');
+      const timeElement = section.querySelector('.time-badge');
+      
+      if (titleElement && timeElement) {
+        const title = titleElement.textContent.trim();
+        const time = timeElement.textContent.trim();
+        plainText += `━━━ ${title} (${time}) ━━━\n\n`;
+      }
+      
+      // Extract questions
+      const questionElements = section.querySelectorAll('.question-text');
+      questionElements.forEach(questionEl => {
+        const questionText = questionEl.textContent.trim();
+        if (questionText) {
+          plainText += `• ${questionText}\n`;
+        }
+      });
+      
+      plainText += '\n';
+    });
+    
+    // Add follow-up email if present
+    const emailSection = tempDiv.querySelector('.followup-section');
+    if (emailSection) {
+      plainText += '📝 Follow-up Email:\n\n';
+      const subject = emailSection.querySelector('.email-subject');
+      const body = emailSection.querySelector('.email-body');
+      
+      if (subject) {
+        plainText += subject.textContent.trim() + '\n\n';
+      }
+      if (body) {
+        plainText += body.textContent.trim() + '\n';
+      }
+    }
+    
+    // Clean up any remaining HTML tags and entities
+    plainText = plainText.replace(/<br\s*\/?>/gi, '\n');
+    plainText = plainText.replace(/<\/?\w+[^>]*>/gi, ''); // Remove all HTML tags
+    plainText = plainText.replace(/&nbsp;/gi, ' '); // Replace non-breaking spaces
+    plainText = plainText.replace(/&amp;/gi, '&'); // Replace HTML entities
+    plainText = plainText.replace(/&lt;/gi, '<');
+    plainText = plainText.replace(/&gt;/gi, '>');
+    plainText = plainText.replace(/\s+\n/g, '\n'); // Clean up extra spaces before newlines
+    plainText = plainText.replace(/\n{3,}/g, '\n\n'); // Limit consecutive newlines
+    
+    console.log('✅ Successfully converted HTML to plain text');
+    return plainText;
+    
+  } catch (error) {
+    console.error('❌ Failed to convert HTML to plain text:', error);
+    return 'Error: Could not process AI response';
+  }
+}
+
 async function generateScenarioAdvice(scenario, targetData) {
   const chat = getCurrentChat();
   if (!chat) return;
   
-  // 显示加载状态
+  // Show loading state
   showTypingIndicator();
   
   try {
-    // 调用 Chrome AI（background.js 会根据 scenario 和 targetData 构建 Prompt）
+    // Call Chrome AI（background.js 会根据 scenario 和 targetData Building Prompt）
     const response = await chrome.runtime.sendMessage({
       action: 'GENERATE_SCENARIO_ADVICE',
       scenario: scenario,
@@ -433,248 +565,135 @@ async function generateScenarioAdvice(scenario, targetData) {
     });
     
     if (response && response.status === 'SUCCESS') {
-      // 使用时间轴展示问题
-      const timeline = new QuestionTimeline();
-      const parsedData = timeline.parseQuestions(response.output, scenario);
+      console.log('🔍 DEBUG: AI Raw Output:', response.output);
       
-      if (parsedData && parsedData.sections && parsedData.sections.length > 0) {
-        // P1-5: 增强问题为交互式卡片
-        const enhancedSections = questionCards.enhanceQuestionsWithCards(parsedData.sections, scenario);
-        parsedData.sections = enhancedSections;
-        
-        // 生成增强版时间轴HTML
-        const timelineHTML = questionCards.generateEnhancedTimelineHTML(parsedData.sections);
-        addMessage('assistant', timelineHTML);
-        
-        // P1-4: 如果是Networking场景，添加Pitch练习器
-        if (scenario === 'networking') {
-          // 提取Elevator Pitch内容
-          const pitchSection = parsedData.sections.find(s => 
-            s.title.includes('Pitch') || s.title.includes('自我介绍')
-          );
-          
-          if (pitchSection && pitchSection.questions.length > 0) {
-            const pitchScript = pitchSection.questions[0].text;
-            const trainerHTML = pitchTrainer.generateTrainerHTML(pitchScript, targetData);
-            addMessage('assistant', trainerHTML);
-          }
-        }
-        
-        // 添加避雷警告和跟进邮件（如果有）
-        if (parsedData.warnings && parsedData.warnings.length > 0) {
-          const warningsHTML = `
-            <div class="warnings-section">
-              <h3>⚠️ 避雷警告</h3>
-              <ul class="warnings-list">
-                ${parsedData.warnings.map(w => `<li>${escapeHtml(w)}</li>`).join('')}
-              </ul>
-            </div>
-          `;
-          addMessage('assistant', warningsHTML);
-        }
-        
-        if (parsedData.followUp) {
-          const followUpHTML = `
-            <div class="followup-section">
-              <h3>📧 跟进邮件模板</h3>
-              <div class="email-preview">
-                <div class="email-subject"><strong>主题：</strong>${escapeHtml(parsedData.followUp.subject)}</div>
-                <div class="email-body">${escapeHtml(parsedData.followUp.body).replace(/\n/g, '<br>')}</div>
-              </div>
-              <button class="copy-email-btn" onclick="copyFollowUpEmail()">📋 复制邮件</button>
-            </div>
-            
-            <style>
-              .warnings-section {
-                margin-top: 16px;
-                padding: 20px;
-                background: #fef2f2;
-                border-radius: 12px;
-                border-left: 4px solid #ef4444;
-              }
-              
-              .warnings-section h3 {
-                margin: 0 0 12px 0;
-                font-size: 16px;
-                color: #991b1b;
-              }
-              
-              .warnings-list {
-                margin: 0;
-                padding-left: 20px;
-              }
-              
-              .warnings-list li {
-                color: #7f1d1d;
-                font-size: 14px;
-                line-height: 1.6;
-                margin-bottom: 8px;
-              }
-              
-              .followup-section {
-                margin-top: 16px;
-                padding: 20px;
-                background: #f0f9ff;
-                border-radius: 12px;
-                border-left: 4px solid #3b82f6;
-              }
-              
-              .followup-section h3 {
-                margin: 0 0 12px 0;
-                font-size: 16px;
-                color: #1e40af;
-              }
-              
-              .email-preview {
-                background: white;
-                padding: 16px;
-                border-radius: 8px;
-                font-size: 13px;
-                line-height: 1.6;
-                margin-bottom: 12px;
-              }
-              
-              .email-subject {
-                margin-bottom: 12px;
-                padding-bottom: 12px;
-                border-bottom: 1px solid #e5e7eb;
-                color: #1f2937;
-              }
-              
-              .email-body {
-                color: #4b5563;
-              }
-              
-              .copy-email-btn {
-                width: 100%;
-                padding: 10px;
-                background: #3b82f6;
-                color: white;
-                border: none;
-                border-radius: 8px;
-                font-size: 14px;
-                font-weight: 600;
-                cursor: pointer;
-                transition: all 0.2s;
-              }
-              
-              .copy-email-btn:hover {
-                background: #2563eb;
-              }
-            </style>
-          `;
-          addMessage('assistant', followUpHTML);
-        }
+      // Clean any HTML tags from AI output
+      let cleanOutput = response.output;
+      
+      // Check if AI returned HTML, convert to plain text
+      if (response.output.includes('<div class="enhanced-question-timeline">')) {
+        console.log('⚠️ AI returned HTML, converting to plain text...');
+        cleanOutput = convertHtmlToPlainText(response.output);
       } else {
-        // 如果解析失败，显示原始文本
-        addMessage('assistant', response.output);
+        console.log('✅ AI returned text, cleaning any HTML tags...');
+        // Clean any HTML tags that might be embedded in the text
+        cleanOutput = cleanOutput.replace(/<br\s*\/?>/gi, '\n');
+        cleanOutput = cleanOutput.replace(/<\/?\w+[^>]*>/gi, ''); // Remove all HTML tags
+        cleanOutput = cleanOutput.replace(/&nbsp;/gi, ' '); // Replace non-breaking spaces
+        cleanOutput = cleanOutput.replace(/&amp;/gi, '&'); // Replace HTML entities
+        cleanOutput = cleanOutput.replace(/&lt;/gi, '<');
+        cleanOutput = cleanOutput.replace(/&gt;/gi, '>');
       }
+      
+      // Final cleanup before display - remove any remaining HTML tags
+      cleanOutput = cleanOutput.replace(/<br\s*\/?>/gi, '\n');
+      cleanOutput = cleanOutput.replace(/<[^>]+>/g, '');
+      
+      console.log('🔍 DEBUG: Clean output:', cleanOutput);
+      console.log('🔍 DEBUG: Contains br tags?', cleanOutput.includes('<br>'));
+      addMessage('assistant', cleanOutput.replace(/\n/g, '<br>'));
     } else {
-      throw new Error(response?.message || '生成失败');
+      throw new Error(response?.message || 'Scenario advice generation failed');
     }
-    
   } catch (error) {
-    console.error('场景建议生成失败:', error);
-    addMessage('assistant', `❌ 生成失败: ${error.message}`);
-  // 改: “正在下载/未开放/超时”，给出更友好的解释
-  if (isLMNotReadyReason(error?.message)) {
-    showLMNotReady(error?.message);
-  }
+    console.error('Scenario advice generation failed:', error);
+    hideTypingIndicator();
+    showToast('Generation failed: ' + error.message, 'error');
   } finally {
     hideTypingIndicator();
   }
 }
 
 // ========================================
-// Prompt 构建
+// Prompt Building
 // ========================================
 function buildCoffeeChatPrompt(targetData) {
-  return `你是一位专业的职业社交顾问。请为以下 Coffee Chat 场景生成详细的准备方案：
+  return `You are a professional career networking consultant。Please provide for the following Coffee Chat scenario a detailed preparation plan：
 
-【目标人物信息】
-姓名：${targetData.name || '未提供'}
-职位：${targetData.headline || '未提供'}
-公司：${targetData.company || '未提供'}
-工作经历：${formatExperiences(targetData.experiences)}
-教育背景：${formatEducation(targetData.education)}
+【Target Person Information】
+Name:${targetData.name || 'Not provided'}
+Position:${targetData.headline || 'Not provided'}
+公司：${targetData.company || 'Not provided'}
+Work Experience:${formatExperiences(targetData.experiences)}
+Education:${formatEducation(targetData.education)}
 
-请生成以下内容：
+Please generate the following:
 
-🎯 **Coffee Chat 智能问题库**
+🎯 **Coffee Chat Smart Question Bank**
 
-━━━ 第一层：破冰 + 职业路径（前15分钟）━━━
+━━━ Layer 1:Icebreaker + Career Path（first15minutes）━━━
 
-✨ **个性化破冰**（基于LinkedIn分析）
-• 提供2-3个开放式破冰话题
-• 展示你做了功课
-• 自然引出下一个话题
+✨ **个性化Icebreaker**（Based on LinkedIn analysis）
+• Provide2-3个开放式Icebreaker话题
+• Show you did your homework
+• Naturally lead to next topic
 
-📍 **职业发展关键节点**
-• 2-3个关于职业转折点的问题
+📍 **Career Development Key Milestones**
+• 2-3个questions about career turning points
 
-━━━ 第二层：行业洞察（中间20分钟）━━━
+━━━ Layer 2:Industry Insights（middle20minutes）━━━
 
 🔍 **行业趋势**
-• 2-3个关于行业发展的深度问题
+• 2-3个关于行业发展的Deep Questions
 
-━━━ 第三层：个人建议（最后10分钟）━━━
+━━━ Layer 3:Personal Advice（last10minutes）━━━
 
-🎓 **针对性请教**
-• 2个关于个人发展的问题
+🎓 **Targeted Consultation**
+• 2个questions about personal development
 
-⚠️ **避雷警告**
-• 列出3个不该问的问题
+⚠️ **Warning**
+• List3 questions not to ask
 
-📝 **会后跟进邮件模板**
-• 专业且真诚的感谢邮件（150字内）
+📝 **Post-meeting Follow-up Email Template**
+• Professional and sincere thank-you email（150 characters）
 
-请确保：
-- 问题开放式，不能yes/no回答
-- 展示做了功课（提到具体公司/项目）
-- 层次分明，不越级询问`;
+Please ensure:
+- Questions are open-ended, not yes/no
+- Show homework done (mention specific companies/projects)
+- Clear hierarchy, don't skip levels`;
 }
 
 function buildNetworkingPrompt(targetData) {
-  return `你是一位 Career Fair 社交专家。请为以下 Networking 场景生成快速攻略：
+  return `You are a Career Fair networking expert。Please provide for the following Networking scenario a quick strategy：
 
-【目标信息】
-${targetData.type === 'company' ? '公司' : '人物'}：${targetData.name || '未提供'}
-${targetData.type === 'company' ? '行业' : '职位'}：${targetData.headline || targetData.industry || '未提供'}
-最新动态：${targetData.recentNews || '未提供'}
+【Target Information】
+${targetData.type === 'company' ? '公司' : '人物'}：${targetData.name || 'Not provided'}
+${targetData.type === 'company' ? '行业' : '职位'}：${targetData.headline || targetData.industry || 'Not provided'}
+最新动态：${targetData.recentNews || 'Not provided'}
 
-请生成以下内容：
+Please generate the following:
 
-🎯 **Networking 快速攻略**
+🎯 **Networking Quick Strategy**
 
-━━━ 2分钟 Elevator Pitch ━━━
-• 提供一个简洁有力的自我介绍脚本（200字内）
-• 包含：背景+技能+为什么对这家公司感兴趣
+━━━ 2minutes Elevator Pitch ━━━
+• Provide一个简洁有力的Self-introductionscript（200 characters）
+• Include: background + skills + why interested in this company
 
-━━━ 心机问题弹药库 ━━━
-• **Level 1**: 展示你关注公司（1个问题）
-• **Level 2**: 展示你懂行业（1个问题）
-• **Level 3**: 展示你想加入（1个问题）
+━━━ Strategic Question Arsenal ━━━
+• **Level 1**: Show you follow the company（1个问题）
+• **Level 2**: Show you understand the industry（1个问题）
+• **Level 3**: Show you want to join（1个问题）
 
-每个问题附带"为什么有效"的解释
+Each question includes"why it works"explanation
 
-━━━ 要联系方式话术 ━━━
-提供3种不同时机的话术：
-• **时机1**: 对方介绍完公司
-• **时机2**: 聊到你的匹配点
-• **时机3**: 看到后面还有人排队
+━━━ Contact Exchange Scripts ━━━
+Provide3 scripts for different situations:
+• **Timing1**: After they introduce the company
+• **Timing2**: When discussing your fit
+• **Timing3**: When seeing others waiting
 
-━━━ 24小时跟进邮件 ━━━
-• 简洁的跟进邮件模板（150字内）
-• 提及具体对话内容
+━━━ 24hour follow-up email ━━━
+• Concise follow-up email template（150 characters）
+• Mention specific conversation content
 
-请确保：
-- Pitch简洁有力，2分钟内说完
-- 问题具体到公司最近新闻/项目
-- 结尾话术自然，不尴尬`;
+Please ensure:
+- Pitch is concise and powerful,2minutes内说完
+- Questions specific to company's recent news/projects
+- Closing scripts are natural, not awkward`;
 }
 
 // ========================================
-// 消息发送
+// Message Sending
 // ========================================
 async function sendMessage() {
   const content = elements.chatInput.value.trim();
@@ -682,26 +701,26 @@ async function sendMessage() {
   
   const chat = getCurrentChat();
   if (!chat) {
-    alert('请先创建一个对话');
+    alert('Please create a conversation first');
     return;
   }
   
-  // 添加用户消息
+  // Add user message
   addMessage('user', content);
   
-  // 清空输入框
+  // Clear input box
   elements.chatInput.value = '';
   autoResizeTextarea();
   
-  // 显示加载状态
+  // Show loading state
   showTypingIndicator();
   AppState.isLoading = true;
   
   try {
-    // 构建上下文
+    // Building上下文
     const context = buildContext(chat);
     
-    // 调用 Chrome AI
+    // Call Chrome AI
     const response = await chrome.runtime.sendMessage({
       action: 'CHAT_MESSAGE',
       message: content,
@@ -713,14 +732,14 @@ async function sendMessage() {
     if (response && response.status === 'SUCCESS') {
       addMessage('assistant', response.output);
     } else {
-      throw new Error(response?.message || '发送失败');
+      throw new Error(response?.message || 'Send failed');
     }
     
   } catch (error) {
-    console.error('消息发送失败:', error);
-    addMessage('assistant', `❌ 发送失败: ${error.message}`);
+    console.error('Message Sending失败:', error);
+    addMessage('assistant', `❌ Send failed: ${error.message}`);
 
-  // 改: “正在下载/未开放/超时”，给出更友好的解释
+  // 改: “正在下载/未开放/超时”，给出更友好explanation
   if (isLMNotReadyReason(error?.message)) {
     showLMNotReady(error?.message);
   }
@@ -749,8 +768,8 @@ function addMessage(role, content) {
 }
 
 function buildContext(chat) {
-  // 构建对话上下文
-  const recentMessages = chat.messages.slice(-10); // 最近10条消息
+  // Building对话上下文
+  const recentMessages = chat.messages.slice(-10); // Last 10 messages
   
   return {
     targetName: chat.targetName,
@@ -765,7 +784,7 @@ function buildContext(chat) {
 }
 
 function showDeleteConfirmation(chatId) {
-  // 如果已有确认器则移除
+  // Remove existing confirmation if present
   const existing = document.getElementById('delete-confirmation');
   if (existing) existing.remove();
 
@@ -826,36 +845,40 @@ function performDeleteChat(chatId) {
 }
 
 // ========================================
-// 快速操作
+// Quick Actions
 // ========================================
 async function handleQuickAction(action) {
   switch (action) {
-    case 'linkedin-import':
-      await importLinkedInProfile();
-      break;
     case 'coffee-chat':
-      activateScenario('coffee-chat');
+      await activateScenario('coffee-chat');
       break;
     case 'networking':
-      activateScenario('networking');
+      await activateScenario('networking');
       break;
   }
 }
 
 async function importLinkedInProfile() {
   try {
-    // 检查是否在 LinkedIn 页面
+    // Check if on LinkedIn page
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     
     if (!tab.url.includes('linkedin.com')) {
-      alert('请在 LinkedIn 页面使用此功能');
+      alert('Please use this feature on LinkedIn pages');
       return;
     }
     
-    // 显示加载提示
+    // Hide the import toast notification on the LinkedIn page
+    try {
+      await chrome.tabs.sendMessage(tab.id, { action: 'HIDE_IMPORT_TOAST' });
+    } catch (e) {
+      console.log('Could not hide import toast:', e);
+    }
+    
+    // Show loading prompt
     showTypingIndicator();
     
-    // 调用 background script 获取 LinkedIn 数据
+    // Call background script to get LinkedIn data
     const response = await chrome.runtime.sendMessage({
       action: 'GET_LINKEDIN_PROFILE_DATA'
     });
@@ -863,10 +886,10 @@ async function importLinkedInProfile() {
     if (response && response.status === 'SUCCESS') {
       const data = response.data;
       
-      // 更新当前对话的目标信息
+      // 更新当first对话的Target Information
       const chat = getCurrentChat();
       if (chat) {
-        chat.targetName = data.basic_info?.name || '未知';
+        chat.targetName = data.basic_info?.name || 'Unknown';
         chat.targetRole = data.basic_info?.headline || '';
         chat.targetCompany = data.current_position?.company || '';
         chat.targetData = data;
@@ -875,34 +898,43 @@ async function importLinkedInProfile() {
         renderCurrentChat();
         renderChatList();
         
-        // 使用场景推荐系统
+        // 使用scenarios推荐系统
         const recommender = new SceneRecommender();
         const recommendation = recommender.recommendScene(data);
         
-        // 自动激活推荐的场景（不显示选择界面）
-        console.log('🎯 AI推荐场景:', recommendation.recommended, '匹配度:', recommendation.confidence + '%');
+        console.log('🎯 AI推荐scenarios:', recommendation.recommended, 'Match confidence:', recommendation.confidence + '%');
         
-        // 延迟激活，确保数据已保存
-        setTimeout(() => {
-          activateScenario(recommendation.recommended);
-        }, 500);
+        // 只在没有激活scenarios时才自动激活推荐的scenarios
+        // 如果用户已经选择了scenarios（如networking），则保持当firstscenarios不变
+        if (!chat.scenario) {
+          // Delay activation to ensure data is saved
+          setTimeout(() => {
+            activateScenario(recommendation.recommended);
+          }, 500);
+        } else {
+          console.log('⏭️ 已有scenarios:', chat.scenario, 'Keep unchanged');
+          // 如果已有scenarios，重新生成该scenarios的建议（基于新Import的数据）
+          setTimeout(() => {
+            generateScenarioAdvice(chat.scenario, chat.targetData);
+          }, 500);
+        }
         // Show imported name banner in UI
         showImportedName(chat.targetName);
       }
     } else {
-      throw new Error(response?.message || '导入失败');
+      throw new Error(response?.message || 'Import失败');
     }
     
   } catch (error) {
-    console.error('LinkedIn 导入失败:', error);
-    alert('导入失败: ' + error.message);
+    console.error('LinkedIn Import失败:', error);
+    alert('Import失败: ' + error.message);
   } finally {
     hideTypingIndicator();
   }
 }
 
 // ========================================
-// UI 辅助函数
+// UI Helper Functions
 // ========================================
 function toggleChatList() {
   const collapsed = elements.chatListPanel.classList.toggle('collapsed');
@@ -919,7 +951,7 @@ function toggleChatList() {
   if (elements.toggleClockBtn) {
     // reflect collapsed state on the clock button next to New Chat
     elements.toggleClockBtn.setAttribute('aria-pressed', String(collapsed));
-    elements.toggleClockBtn.title = collapsed ? '打开对话列表' : '折叠对话列表';
+    elements.toggleClockBtn.title = collapsed ? 'Open chat list' : 'Collapse chat list';
   }
 
   // Sync which toggle controls are visible so only one toggle is shown at a time
@@ -990,11 +1022,11 @@ function hideTypingIndicator() {
 }
 
 // ========================================
-// 数据持久化
+// Data Persistence
 // ========================================
 function saveChats() {
   chrome.storage.local.set({ chats: AppState.chats }, () => {
-    console.log('💾 聊天记录已保存');
+    console.log('💾 Chat history saved');
   });
 }
 
@@ -1008,7 +1040,7 @@ function loadChatHistory() {
 }
 
 // ========================================
-// 工具函数
+// Utility Functions
 // ========================================
 function getCurrentChat() {
   return AppState.chats.find(c => c.id === AppState.currentChatId);
@@ -1022,10 +1054,10 @@ function formatTime(timestamp) {
   const now = Date.now();
   const diff = now - timestamp;
   
-  if (diff < 60000) return '刚刚';
-  if (diff < 3600000) return Math.floor(diff / 60000) + '分钟前';
-  if (diff < 86400000) return Math.floor(diff / 3600000) + '小时前';
-  if (diff < 604800000) return Math.floor(diff / 86400000) + '天前';
+  if (diff < 60000) return 'Just now';
+  if (diff < 3600000) return Math.floor(diff / 60000) + 'minutesfirst';
+  if (diff < 86400000) return Math.floor(diff / 3600000) + '小时first';
+  if (diff < 604800000) return Math.floor(diff / 86400000) + '天first';
   
   const date = new Date(timestamp);
   return `${date.getMonth() + 1}/${date.getDate()}`;
@@ -1038,14 +1070,14 @@ function escapeHtml(text) {
 }
 
 function formatExperiences(experiences) {
-  if (!experiences || experiences.length === 0) return '未提供';
+  if (!experiences || experiences.length === 0) return 'Not provided';
   return experiences.slice(0, 3).map(exp => 
     `${exp.title} @ ${exp.company} (${exp.duration || ''})`
   ).join('; ');
 }
 
 function formatEducation(education) {
-  if (!education || education.length === 0) return '未提供';
+  if (!education || education.length === 0) return 'Not provided';
   return education.slice(0, 2).map(edu => 
     `${edu.school} - ${edu.degree || ''} ${edu.field || ''}`
   ).join('; ');
@@ -1055,16 +1087,16 @@ async function checkLinkedInPage() {
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (tab && tab.url && tab.url.includes('linkedin.com')) {
-      console.log('✅ 当前在 LinkedIn 页面');
+      console.log('✅ 当first在 LinkedIn 页面');
     }
   } catch (error) {
-    console.log('无法检查当前页面');
+    console.log('无法检查当first页面');
   }
 }
 
-// 绑定场景推荐卡片的事件
+// 绑定scenarios推荐卡片的事件
 function bindSceneRecommendationEvents() {
-  // 绑定场景按钮 (支持新旧两种按钮样式)
+  // 绑定scenarios按钮 (支持新旧两种按钮Styles)
   const sceneButtons = document.querySelectorAll('.scene-btn, .scene-option-btn');
   sceneButtons.forEach(btn => {
     btn.addEventListener('click', () => {
@@ -1075,7 +1107,7 @@ function bindSceneRecommendationEvents() {
     });
   });
   
-  // 绑定手动选择链接
+  // Bind manual selection link
   const manualLink = document.getElementById('manual-scene-select');
   if (manualLink) {
     manualLink.addEventListener('click', (e) => {
@@ -1085,27 +1117,27 @@ function bindSceneRecommendationEvents() {
   }
 }
 
-// 显示手动场景选择器
+// 显示手动scenarios选择器
 function showManualSceneSelector() {
   const chat = getCurrentChat();
   if (!chat) return;
   
   addMessage('assistant', `
     <div class="manual-scene-selector">
-      <h3>请选择场景</h3>
+      <h3>请选择scenarios</h3>
       <div class="scene-options">
         <button class="scene-option" data-scene="coffee-chat">
           <span class="icon">☕</span>
           <div class="info">
             <div class="title">Coffee Chat</div>
-            <div class="desc">30-60分钟深度交流，获取职业洞察</div>
+            <div class="desc">30-60minutesdeep conversation, gain career insights</div>
           </div>
         </button>
         <button class="scene-option" data-scene="networking">
           <span class="icon">🤝</span>
           <div class="info">
             <div class="title">Networking</div>
-            <div class="desc">2-10分钟快速社交，建立联系</div>
+            <div class="desc">2-10minutesquick networking, build connections</div>
           </div>
         </button>
       </div>
@@ -1183,23 +1215,23 @@ function showManualSceneSelector() {
   }, 100);
 }
 
-// 复制跟进邮件
+// Copy follow-up email
 function copyFollowUpEmail() {
-  const emailSubject = document.querySelector('.email-subject').textContent.replace('主题：', '').trim();
+  const emailSubject = document.querySelector('.email-subject').textContent.replace('Subject:', '').trim();
   const emailBody = document.querySelector('.email-body').textContent;
   const fullEmail = `${emailSubject}\n\n${emailBody}`;
   
   navigator.clipboard.writeText(fullEmail).then(() => {
     const btn = document.querySelector('.copy-email-btn');
     const originalText = btn.textContent;
-    btn.textContent = '✅ 已复制';
+    btn.textContent = '✅ Copied';
     setTimeout(() => {
       btn.textContent = originalText;
     }, 2000);
   });
 }
 
-// 改: 本地模型未就绪提醒
+// Improved: Local model not ready reminder
 function isLMNotReadyReason(reason = '') {
   const s = String(reason || '').toLowerCase();
   return (
@@ -1212,23 +1244,23 @@ function isLMNotReadyReason(reason = '') {
 
 function showLMNotReady(reason = '') {
   const s = String(reason || '').toLowerCase();
-  let msg = '本地模型暂不可用，请稍后重试。';
+  let msg = 'Local model temporarily unavailable, please try again later.';
 
   if (s.includes('unavailable') || s.includes('api not available')) {
-    msg = '❌ 本地模型未开放（请确认 Chrome 127+ 且启用相关 flags）。';
+    msg = '❌ Local model not available (please confirm Chrome 127+ and enable relevant flags).';
   } else if (s.includes('downloading') || s.includes('downloadable') || s.includes('download')) {
-    msg = '本地模型正在首次准备（下载/解压/初始化），完成后将自动可用。';
+    msg = '本地模型正在首次准备（下载/解压/Initialization），完成后将自动可用。';
   } else if (s.includes('smoke') || s.includes('timeout')) {
-    msg = '初始化较慢（网络/磁盘/杀软可能导致），稍等片刻再试。';
+    msg = 'Initialization较慢（网络/磁盘/杀软可能导致），稍等片刻再试。';
   }
 
-  // 复用showToast
+  // Reuse showToast
   showToast(msg, 'warning');
 }
 
-// Toast 提示
+// Toast Notification
 function showToast(message, type = 'info') {
-  // 移除已存在的 toast
+  // Remove existing toast
   const existingToast = document.getElementById('sidepanel-toast');
   if (existingToast) {
     existingToast.remove();
@@ -1282,7 +1314,7 @@ function showToast(message, type = 'info') {
   
   document.body.appendChild(toast);
   
-  // 3秒后自动消失
+  // Auto-dismiss after 3 seconds
   setTimeout(() => {
     toast.style.animation = 'slideDown 0.3s ease-out reverse';
     setTimeout(() => toast.remove(), 300);
@@ -1290,7 +1322,7 @@ function showToast(message, type = 'info') {
 }
 
 
-// 改：用户点击任意聊天区域时唤醒 Offscreen
+// 改：用户Click任意Chat Area时唤醒 Offscreen
 
 document.addEventListener('DOMContentLoaded', () => {
   const chatPanel = document.querySelector('.chat-panel');
@@ -1302,13 +1334,13 @@ document.addEventListener('DOMContentLoaded', () => {
       .catch(() => console.log('%c[SidePanel] ❌ Offscreen ping failed', 'color: #d50000'));
   };
 
-  // 仅在用户第一次点击时触发，防止频繁调用
+  // 仅在用户第一次Click时触发，防止频繁调用
   let hasPinged = false;
   chatPanel.addEventListener('click', () => {
     if (!hasPinged) {
       wakeOffscreen();
       hasPinged = true;
-      // 10秒后可重新触发一次
+      // Can trigger again after 10 seconds
       setTimeout(() => (hasPinged = false), 10000);
     }
   });

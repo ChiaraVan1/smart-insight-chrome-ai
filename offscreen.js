@@ -3,6 +3,8 @@
 console.log('[OFFSCREEN] ready');
 
 let session = null;
+let isInitializing = false;
+let downloadProgress = 0;
 
 // 统一会话配置：指定输出语言（否则会有控制台警告）
 const LM_OPTS = {
@@ -11,8 +13,16 @@ const LM_OPTS = {
   monitor(m) {
     // 首次需要时会触发模型下载；这里监听进度方便调试
     m.addEventListener('downloadprogress', (e) => {
-      const pct = Math.round((e.loaded || 0) * 100);
-      console.log('[OFFSCREEN][LM] downloading:', pct + '%');
+      downloadProgress = Math.round((e.loaded || 0) * 100);
+      console.log(`[OFFSCREEN][LM] 📥 Downloading model: ${downloadProgress}%`);
+      
+      // 通知background下载进度
+      try {
+        chrome.runtime.sendMessage({
+          action: 'MODEL_DOWNLOAD_PROGRESS',
+          progress: downloadProgress
+        }).catch(() => {});
+      } catch (_) {}
     });
   }
 };
@@ -22,11 +32,45 @@ async function getSession() {
   if (!('LanguageModel' in self)) {
     throw new Error('LanguageModel API is not available in offscreen context (Windows 环境出现).');
   }
-  if (!session) {
-    const a = await LanguageModel.availability(LM_OPTS);
-    if (a === 'unavailable') throw new Error('On-device model unavailable');
-    session = await LanguageModel.create(LM_OPTS);
+  
+  if (!session && !isInitializing) {
+    isInitializing = true;
+    try {
+      console.log('[OFFSCREEN][LM] 🔍 Checking model availability...');
+      const a = await LanguageModel.availability(LM_OPTS);
+      console.log('[OFFSCREEN][LM] 📊 Availability status:', a);
+      
+      if (a === 'unavailable') {
+        throw new Error('On-device model unavailable');
+      }
+      
+      if (a === 'after-download') {
+        console.log('[OFFSCREEN][LM] 📥 Model needs download, initializing...');
+      }
+      
+      console.log('[OFFSCREEN][LM] 🚀 Creating session...');
+      session = await LanguageModel.create(LM_OPTS);
+      console.log('[OFFSCREEN][LM] ✅ Session created successfully!');
+      
+      // 通知background模型已就绪
+      try {
+        chrome.runtime.sendMessage({
+          action: 'MODEL_READY'
+        }).catch(() => {});
+      } catch (_) {}
+    } catch (error) {
+      console.error('[OFFSCREEN][LM] ❌ Session creation failed:', error);
+      throw error;
+    } finally {
+      isInitializing = false;
+    }
   }
+  
+  // 等待Initialization完成
+  while (isInitializing) {
+    await new Promise(resolve => setTimeout(resolve, 100));
+  }
+  
   return session;
 }
 
@@ -39,6 +83,12 @@ async function runPrompt(text) {
 
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
    
+  // 处理PING请求
+  if (msg?.action === 'OFFSCREEN_PING') {
+    sendResponse({ ok: true, status: 'alive' });
+    return true;
+  }
+  
   // Offscreen 只处理 OFFSCREEN_*，其余一律忽略
   if (!msg?.action?.startsWith?.('OFFSCREEN_')) {
     return;  // 不 sendResponse，也不 return true，让 SW 去处理
@@ -78,7 +128,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       return;
     }
 
-    // 改: 预热（提前 materialize）
+    // 改: 预热（提first materialize）
     if (msg.action === 'OFFSCREEN_PREWARM') {
       const s = await getSession();        // 触发 LanguageModel.create(...)
       try { await s.prompt('OK'); } catch (_) {} // 一句短 prompt 进一步预热
@@ -94,4 +144,17 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
 
   return true; // ← 必须：告知异步 sendResponse
 });
+
+// 页面加载时主动Initialization模型（触发下载）
+(async () => {
+  console.log('[OFFSCREEN] 🚀 Auto-initializing model on page load...');
+  try {
+    // 立即to startInitialization，不延迟，确保模型尽快可用
+    await getSession();
+    console.log('[OFFSCREEN] ✅ Auto-initialization completed');
+  } catch (error) {
+    console.warn('[OFFSCREEN] ⚠️ Auto-initialization failed:', error.message);
+    // 失败不阻塞，后续调用时会重试
+  }
+})();
 

@@ -491,7 +491,7 @@ class CompanyScraper {
         return Object.fromEntries(
             Object.entries(skillCounts)
                 .sort(([,a], [,b]) => b - a)
-                .slice(0, 15) // 只返回前15个技能
+                .slice(0, 15) // 只返回first15个技能
         );
     }
 
@@ -603,7 +603,7 @@ class CompanyScraper {
             competitive_advantages: []
         };
         
-        // 公司定位
+        // Company Positioning
         if (results.about_content?.content) {
             const content = results.about_content.content;
             const sentences = content.split('.').filter(s => s.trim().length > 20);

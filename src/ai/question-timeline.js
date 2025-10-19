@@ -24,12 +24,12 @@ class QuestionTimeline {
   parseCoffeeChatQuestions(text) {
     const sections = [];
     
-    // 第一层：破冰 + 职业路径 (0-15分钟)
-    const layer1 = this.extractSection(text, ['破冰', '职业路径', '第一层']);
+    // Layer 1:Icebreaker + Career Path (0-15minutes)
+    const layer1 = this.extractSection(text, ['Icebreaker', 'Career Path', '第一层']);
     if (layer1.length > 0) {
       sections.push({
-        title: '破冰 + 职业路径',
-        timeRange: '0-15分钟',
+        title: 'Icebreaker + Career Path',
+        timeRange: '0-15minutes',
         level: 'starter',
         icon: '🎯',
         color: '#10b981',
@@ -37,12 +37,12 @@ class QuestionTimeline {
       });
     }
     
-    // 第二层：行业洞察 (15-35分钟)
-    const layer2 = this.extractSection(text, ['行业洞察', '行业趋势', '第二层']);
+    // Layer 2:Industry Insights (15-35minutes)
+    const layer2 = this.extractSection(text, ['Industry Insights', '行业趋势', '第二层']);
     if (layer2.length > 0) {
       sections.push({
-        title: '行业洞察',
-        timeRange: '15-35分钟',
+        title: 'Industry Insights',
+        timeRange: '15-35minutes',
         level: 'intermediate',
         icon: '🔍',
         color: '#3b82f6',
@@ -50,12 +50,12 @@ class QuestionTimeline {
       });
     }
     
-    // 第三层：个人建议 (35-45分钟)
-    const layer3 = this.extractSection(text, ['个人建议', '针对性请教', '第三层']);
+    // Layer 3:Personal Advice (35-45minutes)
+    const layer3 = this.extractSection(text, ['Personal Advice', 'Targeted Consultation', '第三层']);
     if (layer3.length > 0) {
       sections.push({
-        title: '个人建议',
-        timeRange: '35-45分钟',
+        title: 'Personal Advice',
+        timeRange: '35-45minutes',
         level: 'advanced',
         icon: '🎓',
         color: '#8b5cf6',
@@ -63,7 +63,7 @@ class QuestionTimeline {
       });
     }
     
-    // 避雷警告
+    // Warning
     const warnings = this.extractWarnings(text);
     
     // 跟进邮件
@@ -83,12 +83,12 @@ class QuestionTimeline {
   parseNetworkingQuestions(text) {
     const sections = [];
     
-    // Elevator Pitch (0-2分钟)
+    // Elevator Pitch (0-2minutes)
     const pitch = this.extractSection(text, ['Elevator Pitch', '自我介绍', 'Pitch']);
     if (pitch.length > 0) {
       sections.push({
         title: 'Elevator Pitch',
-        timeRange: '0-2分钟',
+        timeRange: '0-2minutes',
         level: 'starter',
         icon: '🎤',
         color: '#10b981',
@@ -96,12 +96,12 @@ class QuestionTimeline {
       });
     }
     
-    // 心机问题 Level 1 (2-4分钟)
+    // 心机问题 Level 1 (2-4minutes)
     const level1 = this.extractSection(text, ['Level 1', '展示你关注']);
     if (level1.length > 0) {
       sections.push({
         title: '展示关注',
-        timeRange: '2-4分钟',
+        timeRange: '2-4minutes',
         level: 'level1',
         icon: '👀',
         color: '#3b82f6',
@@ -109,12 +109,12 @@ class QuestionTimeline {
       });
     }
     
-    // 心机问题 Level 2 (4-6分钟)
-    const level2 = this.extractSection(text, ['Level 2', '展示你懂行业']);
+    // 心机问题 Level 2 (4-6minutes)
+    const level2 = this.extractSection(text, ['Level 2', 'Show you understand the industry']);
     if (level2.length > 0) {
       sections.push({
         title: '展示专业',
-        timeRange: '4-6分钟',
+        timeRange: '4-6minutes',
         level: 'level2',
         icon: '💡',
         color: '#f59e0b',
@@ -122,12 +122,12 @@ class QuestionTimeline {
       });
     }
     
-    // 心机问题 Level 3 (6-8分钟)
+    // 心机问题 Level 3 (6-8minutes)
     const level3 = this.extractSection(text, ['Level 3', '展示你想']);
     if (level3.length > 0) {
       sections.push({
         title: '展示意愿',
-        timeRange: '6-8分钟',
+        timeRange: '6-8minutes',
         level: 'level3',
         icon: '🎯',
         color: '#8b5cf6',
@@ -135,12 +135,12 @@ class QuestionTimeline {
       });
     }
     
-    // 要联系方式 (8-10分钟)
+    // 要联系方式 (8-10minutes)
     const contact = this.extractSection(text, ['联系方式', '要联系方式']);
     if (contact.length > 0) {
       sections.push({
         title: '要联系方式',
-        timeRange: '8-10分钟',
+        timeRange: '8-10minutes',
         level: 'closing',
         icon: '📱',
         color: '#ef4444',
@@ -210,7 +210,7 @@ class QuestionTimeline {
   }
   
   /**
-   * 提取避雷警告
+   * 提取Warning
    */
   extractWarnings(text) {
     const warnings = [];
@@ -325,7 +325,7 @@ class QuestionTimeline {
     
     const warningsHTML = data.warnings && data.warnings.length > 0 ? `
       <div class="warnings-section">
-        <h3>⚠️ 避雷警告</h3>
+        <h3>⚠️ Warning</h3>
         <ul class="warnings-list">
           ${data.warnings.map(w => `<li>${this.escapeHtml(w)}</li>`).join('')}
         </ul>

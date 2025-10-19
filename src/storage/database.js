@@ -1,5 +1,5 @@
 // database.js - IndexedDB 数据存储层
-// 基于 Dexie.js 封装，提供类型安全的数据库操作
+// 基于 Dexie.js 封装，Provide类型安全的数据库操作
 
 class CareerAssistantDB {
     constructor() {
