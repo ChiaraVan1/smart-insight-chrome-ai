@@ -22,33 +22,33 @@ const elements = {
   toggleListBtn: document.getElementById('toggleListBtn'),
   toggleListMobile: document.getElementById('toggleListMobile'),
   toggleClockBtn: document.getElementById('toggleClockBtn'),
-  
+
   // Chat Area
   chatHeader: document.getElementById('chatHeader'),
   chatMessages: document.getElementById('chatMessages'),
   emptyState: document.getElementById('emptyState'),
   chatPanel: document.querySelector('.chat-panel'),
-  
+
   // Target Information
   targetAvatar: document.getElementById('targetAvatar'),
   targetName: document.getElementById('targetName'),
   targetRole: document.getElementById('targetRole'),
-  
+
   // scenarios按钮
   coffeeChatBtn: document.getElementById('coffeeChatBtn'),
   networkingBtn: document.getElementById('networkingBtn'),
-  
+
   // scenarios工具栏
   scenarioToolbar: document.getElementById('scenarioToolbar'),
   scenarioIcon: document.getElementById('scenarioIcon'),
   scenarioTitle: document.getElementById('scenarioTitle'),
   scenarioContent: document.getElementById('scenarioContent'),
   closeToolbar: document.getElementById('closeToolbar'),
-  
+
   // Input Area
   chatInput: document.getElementById('chatInput'),
   sendBtn: document.getElementById('sendBtn'),
-  
+
   // 其他
   newChatBtn: document.getElementById('newChatBtn')
 };
@@ -64,7 +64,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function initializeApp() {
   console.log('🚀 SmartInsight Chat Initialization...');
-  
+
   // Listen for model download progress
   chrome.runtime.onMessage.addListener((message) => {
     if (message.action === 'MODEL_DOWNLOAD_PROGRESS') {
@@ -76,21 +76,21 @@ function initializeApp() {
       showToast('✅ AI model ready', 'success', 2000);
     }
   });
-  
+
   // Proactively check model status
   checkModelStatus();
-  
+
   // Load chat history from storage
   chrome.storage.local.get(['chats', 'pendingImport'], (result) => {
     if (result.chats) {
       AppState.chats = result.chats;
       renderChatList();
     }
-    
+
     // Check for pending import
     if (result.pendingImport) {
       console.log('📥 Detected pending import:', result.pendingImport);
-      
+
       // Delay import execution to ensure UI is loaded
       setTimeout(() => {
         handlePendingImport(result.pendingImport);
@@ -99,10 +99,10 @@ function initializeApp() {
       }, 500);
     }
   });
-  
+
   // Check if on LinkedIn page
   checkLinkedInPage();
-  
+
   // Proactively trigger model warmup (if not already done)
   setTimeout(() => {
     chrome.runtime.sendMessage({ action: 'OFFSCREEN_PING' })
@@ -116,7 +116,7 @@ async function checkModelStatus() {
   try {
     const response = await chrome.runtime.sendMessage({ action: 'CHECK_MODEL_STATUS' });
     console.log('🔍 Model status check result:', response);
-    
+
     if (response && response.status === 'ready') {
       console.log('✅ Chrome AI model ready');
     } else if (response && response.status === 'checking') {
@@ -136,22 +136,22 @@ async function checkModelStatus() {
 async function handlePendingImport(pendingImport) {
   try {
     console.log('🚀 Executing pending import...', pendingImport);
-    
+
     // If no current conversation, create one first
     if (!AppState.currentChatId) {
       createNewChat();
       // Wait for DOM update
       await new Promise(resolve => setTimeout(resolve, 100));
     }
-    
+
     // Ensure current conversation exists
     if (!AppState.currentChatId) {
       throw new Error('Unable to create conversation');
     }
-    
+
     // Trigger import
     await importLinkedInProfile();
-    
+
     showToast('✅ LinkedIn data imported automatically', 'success');
   } catch (error) {
     console.error('Failed to handle pending import:', error);
@@ -165,7 +165,7 @@ async function handlePendingImport(pendingImport) {
 function bindEvents() {
   // New conversation
   elements.newChatBtn.addEventListener('click', createNewChat);
-  
+
   // 切换Chat List
   elements.toggleListBtn.addEventListener('click', toggleChatList);
   elements.toggleListMobile.addEventListener('click', toggleChatList);
@@ -175,14 +175,14 @@ function bindEvents() {
 
   // sync toggle UI state initially
   updateToggleUI();
-  
+
   // scenarios按钮
   elements.coffeeChatBtn.addEventListener('click', () => activateScenario('coffee-chat'));
   elements.networkingBtn.addEventListener('click', () => activateScenario('networking'));
-  
+
   // Closescenarios工具栏
   elements.closeToolbar.addEventListener('click', closeScenarioToolbar);
-  
+
   // Send message
   elements.sendBtn.addEventListener('click', sendMessage);
   elements.chatInput.addEventListener('keydown', (e) => {
@@ -191,10 +191,10 @@ function bindEvents() {
       sendMessage();
     }
   });
-  
+
   // Auto-resize textarea
   elements.chatInput.addEventListener('input', autoResizeTextarea);
-  
+
   // Quick action cards
   document.querySelectorAll('.quick-action-card').forEach(card => {
     card.addEventListener('click', (e) => {
@@ -209,7 +209,7 @@ function bindEvents() {
 // ========================================
 function renderChatList() {
   elements.chatListContent.innerHTML = '';
-  
+
   if (AppState.chats.length === 0) {
     elements.chatListContent.innerHTML = `
       <div style="padding: 20px; text-align: center; color: #9ca3af; font-size: 13px;">
@@ -218,10 +218,10 @@ function renderChatList() {
     `;
     return;
   }
-  
+
   // Sort by time descending
   const sortedChats = [...AppState.chats].sort((a, b) => b.updatedAt - a.updatedAt);
-  
+
   sortedChats.forEach(chat => {
     const chatItem = createChatItem(chat);
     elements.chatListContent.appendChild(chatItem);
@@ -234,15 +234,15 @@ function createChatItem(chat) {
   if (chat.id === AppState.currentChatId) {
     div.classList.add('active');
   }
-  
+
   const icon = chat.scenario === 'coffee-chat' ? '☕' : 
                chat.scenario === 'networking' ? '🤝' : '💬';
-  
+
   const lastMessage = chat.messages[chat.messages.length - 1];
   const preview = lastMessage ? lastMessage.content.substring(0, 50) : 'New Chat';
-  
+
   const timeStr = formatTime(chat.updatedAt);
-  
+
   div.innerHTML = `
     <div class="chat-item-header">
       <div style="display:flex;align-items:center;gap:8px;">
@@ -254,7 +254,7 @@ function createChatItem(chat) {
     <div class="chat-item-meta">${timeStr}</div>
     <div class="chat-item-preview">${preview}...</div>
   `;
-  
+
   // clicking the item opens it
   div.addEventListener('click', () => loadChat(chat.id));
 
@@ -267,7 +267,7 @@ function createChatItem(chat) {
       showDeleteConfirmation(id);
     });
   }
-  
+
   return div;
 }
 
@@ -283,16 +283,16 @@ function createNewChat() {
     createdAt: Date.now(),
     updatedAt: Date.now()
   };
-  
+
   AppState.chats.unshift(newChat);
   AppState.currentChatId = newChat.id;
-  
+
   saveChats();
   renderChatList();
   renderCurrentChat();
 
   showToast('✅ New conversation created', 'success');
-  
+
   // Show empty state
   showEmptyState();
 }
@@ -300,11 +300,11 @@ function createNewChat() {
 function loadChat(chatId) {
   const chat = AppState.chats.find(c => c.id === chatId);
   if (!chat) return;
-  
+
   AppState.currentChatId = chatId;
   AppState.currentTarget = chat.targetData;
   AppState.currentScenario = chat.scenario;
-  
+
   renderChatList();
   renderCurrentChat();
 }
@@ -315,13 +315,13 @@ function renderCurrentChat() {
     showEmptyState();
     return;
   }
-  
+
   // Hide header info (don't show target person card)
   elements.chatHeader.style.display = 'none';
-  
+
   // 更新scenarios按钮状态
   updateScenarioButtons();
-  
+
   // Render messages
   renderMessages();
 }
@@ -332,15 +332,15 @@ function renderMessages() {
     showEmptyState();
     return;
   }
-  
+
   elements.emptyState.style.display = 'none';
   elements.chatMessages.innerHTML = '';
-  
+
   chat.messages.forEach(message => {
     const messageEl = createMessageElement(message);
     elements.chatMessages.appendChild(messageEl);
   });
-  
+
   // Scroll to bottom
   scrollToBottom();
 }
@@ -348,10 +348,10 @@ function renderMessages() {
 function createMessageElement(message) {
   const div = document.createElement('div');
   div.className = `message ${message.role}`;
-  
+
   const avatar = message.role === 'user' ? '👤' : '🤖';
   const time = formatTime(message.timestamp);
-  
+
   div.innerHTML = `
     <div class="message-avatar">${avatar}</div>
     <div class="message-content">
@@ -359,7 +359,7 @@ function createMessageElement(message) {
       <div class="message-time">${time}</div>
     </div>
   `;
-  
+
   return div;
 }
 
@@ -380,25 +380,25 @@ async function activateScenario(scenario) {
     // Wait for chat to be created
     await new Promise(resolve => setTimeout(resolve, 100));
   }
-  
+
   const currentChat = getCurrentChat();
   if (!currentChat) {
     alert('Failed to create conversation');
     return;
   }
-  
+
   AppState.currentScenario = scenario;
   currentChat.scenario = scenario;
-  
+
   updateScenarioButtons();
   showScenarioToolbar(scenario);
-  
+
   saveChats();
-  
+
   // Auto-trigger LinkedIn import if no target data exists
   if (!currentChat.targetData) {
     showToast('📥 Importing LinkedIn data...', 'info', 2000);
-    
+
     // Delay to ensure UI updates
     setTimeout(async () => {
       try {
@@ -417,7 +417,7 @@ async function activateScenario(scenario) {
 function updateScenarioButtons() {
   elements.coffeeChatBtn.classList.remove('active');
   elements.networkingBtn.classList.remove('active');
-  
+
   if (AppState.currentScenario === 'coffee-chat') {
     elements.coffeeChatBtn.classList.add('active');
   } else if (AppState.currentScenario === 'networking') {
@@ -427,7 +427,7 @@ function updateScenarioButtons() {
 
 function showScenarioToolbar(scenario) {
   elements.scenarioToolbar.classList.add('active');
-  
+
   if (scenario === 'coffee-chat') {
     elements.scenarioIcon.textContent = '☕';
     elements.scenarioTitle.textContent = 'Coffee Chat Mode';
@@ -487,22 +487,22 @@ function convertHtmlToPlainText(htmlOutput) {
     // Create a temporary DOM element to parse HTML
     const tempDiv = document.createElement('div');
     tempDiv.innerHTML = htmlOutput;
-    
+
     let plainText = '';
-    
+
     // Extract section titles and questions
     const sections = tempDiv.querySelectorAll('.timeline-section');
-    
+
     sections.forEach(section => {
       const titleElement = section.querySelector('.section-title');
       const timeElement = section.querySelector('.time-badge');
-      
+
       if (titleElement && timeElement) {
         const title = titleElement.textContent.trim();
         const time = timeElement.textContent.trim();
         plainText += `━━━ ${title} (${time}) ━━━\n\n`;
       }
-      
+
       // Extract questions
       const questionElements = section.querySelectorAll('.question-text');
       questionElements.forEach(questionEl => {
@@ -511,17 +511,17 @@ function convertHtmlToPlainText(htmlOutput) {
           plainText += `• ${questionText}\n`;
         }
       });
-      
+
       plainText += '\n';
     });
-    
+
     // Add follow-up email if present
     const emailSection = tempDiv.querySelector('.followup-section');
     if (emailSection) {
       plainText += '📝 Follow-up Email:\n\n';
       const subject = emailSection.querySelector('.email-subject');
       const body = emailSection.querySelector('.email-body');
-      
+
       if (subject) {
         plainText += subject.textContent.trim() + '\n\n';
       }
@@ -529,7 +529,7 @@ function convertHtmlToPlainText(htmlOutput) {
         plainText += body.textContent.trim() + '\n';
       }
     }
-    
+
     // Clean up any remaining HTML tags and entities
     plainText = plainText.replace(/<br\s*\/?>/gi, '\n');
     plainText = plainText.replace(/<\/?\w+[^>]*>/gi, ''); // Remove all HTML tags
@@ -539,10 +539,10 @@ function convertHtmlToPlainText(htmlOutput) {
     plainText = plainText.replace(/&gt;/gi, '>');
     plainText = plainText.replace(/\s+\n/g, '\n'); // Clean up extra spaces before newlines
     plainText = plainText.replace(/\n{3,}/g, '\n\n'); // Limit consecutive newlines
-    
+
     console.log('✅ Successfully converted HTML to plain text');
     return plainText;
-    
+
   } catch (error) {
     console.error('❌ Failed to convert HTML to plain text:', error);
     return 'Error: Could not process AI response';
@@ -552,10 +552,10 @@ function convertHtmlToPlainText(htmlOutput) {
 async function generateScenarioAdvice(scenario, targetData) {
   const chat = getCurrentChat();
   if (!chat) return;
-  
+
   // Show loading state
   showTypingIndicator();
-  
+
   try {
     // Call Chrome AI（background.js 会根据 scenario 和 targetData Building Prompt）
     const response = await chrome.runtime.sendMessage({
@@ -563,13 +563,13 @@ async function generateScenarioAdvice(scenario, targetData) {
       scenario: scenario,
       targetData: targetData
     });
-    
+
     if (response && response.status === 'SUCCESS') {
       console.log('🔍 DEBUG: AI Raw Output:', response.output);
-      
+
       // Clean any HTML tags from AI output
       let cleanOutput = response.output;
-      
+
       // Check if AI returned HTML, convert to plain text
       if (response.output.includes('<div class="enhanced-question-timeline">')) {
         console.log('⚠️ AI returned HTML, converting to plain text...');
@@ -584,11 +584,11 @@ async function generateScenarioAdvice(scenario, targetData) {
         cleanOutput = cleanOutput.replace(/&lt;/gi, '<');
         cleanOutput = cleanOutput.replace(/&gt;/gi, '>');
       }
-      
+
       // Final cleanup before display - remove any remaining HTML tags
       cleanOutput = cleanOutput.replace(/<br\s*\/?>/gi, '\n');
       cleanOutput = cleanOutput.replace(/<[^>]+>/g, '');
-      
+
       console.log('🔍 DEBUG: Clean output:', cleanOutput);
       console.log('🔍 DEBUG: Contains br tags?', cleanOutput.includes('<br>'));
       addMessage('assistant', cleanOutput.replace(/\n/g, '<br>'));
@@ -698,28 +698,28 @@ Please ensure:
 async function sendMessage() {
   const content = elements.chatInput.value.trim();
   if (!content || AppState.isLoading) return;
-  
+
   const chat = getCurrentChat();
   if (!chat) {
     alert('Please create a conversation first');
     return;
   }
-  
+
   // Add user message
   addMessage('user', content);
-  
+
   // Clear input box
   elements.chatInput.value = '';
   autoResizeTextarea();
-  
+
   // Show loading state
   showTypingIndicator();
   AppState.isLoading = true;
-  
+
   try {
     // Building上下文
     const context = buildContext(chat);
-    
+
     // Call Chrome AI
     const response = await chrome.runtime.sendMessage({
       action: 'CHAT_MESSAGE',
@@ -728,13 +728,13 @@ async function sendMessage() {
       scenario: chat.scenario,
       targetData: chat.targetData
     });
-    
+
     if (response && response.status === 'SUCCESS') {
       addMessage('assistant', response.output);
     } else {
       throw new Error(response?.message || 'Send failed');
     }
-    
+
   } catch (error) {
     console.error('Message Sending失败:', error);
     addMessage('assistant', `❌ Send failed: ${error.message}`);
@@ -752,16 +752,16 @@ async function sendMessage() {
 function addMessage(role, content) {
   const chat = getCurrentChat();
   if (!chat) return;
-  
+
   const message = {
     role: role,
     content: content,
     timestamp: Date.now()
   };
-  
+
   chat.messages.push(message);
   chat.updatedAt = Date.now();
-  
+
   saveChats();
   renderMessages();
   renderChatList();
@@ -770,7 +770,7 @@ function addMessage(role, content) {
 function buildContext(chat) {
   // Building对话上下文
   const recentMessages = chat.messages.slice(-10); // Last 10 messages
-  
+
   return {
     targetName: chat.targetName,
     targetRole: chat.targetRole,
@@ -859,40 +859,33 @@ async function handleQuickAction(action) {
 }
 
 async function importLinkedInProfile() {
-  // 改
-  const url = tabInfo?.url || '';
-  if (!url.includes || !url.includes('linkedin.com/in/')) {
-    alert('Please open a LinkedIn profile page before importing.');
-    return;
-  }
-  
   try {
     // Check if on LinkedIn page
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    
+
     if (!tab.url.includes('linkedin.com')) {
       alert('Please use this feature on LinkedIn pages');
       return;
     }
-    
+
     // Hide the import toast notification on the LinkedIn page
     try {
       await chrome.tabs.sendMessage(tab.id, { action: 'HIDE_IMPORT_TOAST' });
     } catch (e) {
       console.log('Could not hide import toast:', e);
     }
-    
+
     // Show loading prompt
     showTypingIndicator();
-    
+
     // Call background script to get LinkedIn data
     const response = await chrome.runtime.sendMessage({
       action: 'GET_LINKEDIN_PROFILE_DATA'
     });
-    
+
     if (response && response.status === 'SUCCESS') {
       const data = response.data;
-      
+
       // 更新当first对话的Target Information
       const chat = getCurrentChat();
       if (chat) {
@@ -900,17 +893,17 @@ async function importLinkedInProfile() {
         chat.targetRole = data.basic_info?.headline || '';
         chat.targetCompany = data.current_position?.company || '';
         chat.targetData = data;
-        
+
         saveChats();
         renderCurrentChat();
         renderChatList();
-        
+
         // 使用scenarios推荐系统
         const recommender = new SceneRecommender();
         const recommendation = recommender.recommendScene(data);
-        
+
         console.log('🎯 AI推荐scenarios:', recommendation.recommended, 'Match confidence:', recommendation.confidence + '%');
-        
+
         // 只在没有激活scenarios时才自动激活推荐的scenarios
         // 如果用户已经选择了scenarios（如networking），则保持当firstscenarios不变
         if (!chat.scenario) {
@@ -931,8 +924,10 @@ async function importLinkedInProfile() {
     } else {
       throw new Error(response?.message || 'Import失败');
     }
-    
+
   } catch (error) {
+    console.error('LinkedIn Import失败:', error);
+    alert('Import失败: ' + error.message);
     console.error('LinkedIn Import Failed:', error);
     alert('Import failed: ' + error.message);
   } finally {
@@ -1016,7 +1011,7 @@ function showTypingIndicator() {
       </div>
     </div>
   `;
-  
+
   elements.chatMessages.appendChild(indicator);
   scrollToBottom();
 }
@@ -1060,12 +1055,12 @@ function generateId() {
 function formatTime(timestamp) {
   const now = Date.now();
   const diff = now - timestamp;
-  
+
   if (diff < 60000) return 'Just now';
   if (diff < 3600000) return Math.floor(diff / 60000) + 'minutesfirst';
   if (diff < 86400000) return Math.floor(diff / 3600000) + '小时first';
   if (diff < 604800000) return Math.floor(diff / 86400000) + '天first';
-  
+
   const date = new Date(timestamp);
   return `${date.getMonth() + 1}/${date.getDate()}`;
 }
@@ -1113,7 +1108,7 @@ function bindSceneRecommendationEvents() {
       }
     });
   });
-  
+
   // Bind manual selection link
   const manualLink = document.getElementById('manual-scene-select');
   if (manualLink) {
@@ -1128,7 +1123,7 @@ function bindSceneRecommendationEvents() {
 function showManualSceneSelector() {
   const chat = getCurrentChat();
   if (!chat) return;
-  
+
   addMessage('assistant', `
     <div class="manual-scene-selector">
       <h3>请选择scenarios</h3>
@@ -1207,7 +1202,7 @@ function showManualSceneSelector() {
       }
     </style>
   `);
-  
+
   // 绑定事件
   setTimeout(() => {
     const options = document.querySelectorAll('.scene-option');
@@ -1227,7 +1222,7 @@ function copyFollowUpEmail() {
   const emailSubject = document.querySelector('.email-subject').textContent.replace('Subject:', '').trim();
   const emailBody = document.querySelector('.email-body').textContent;
   const fullEmail = `${emailSubject}\n\n${emailBody}`;
-  
+
   navigator.clipboard.writeText(fullEmail).then(() => {
     const btn = document.querySelector('.copy-email-btn');
     const originalText = btn.textContent;
@@ -1272,18 +1267,18 @@ function showToast(message, type = 'info') {
   if (existingToast) {
     existingToast.remove();
   }
-  
+
   const toast = document.createElement('div');
   toast.id = 'sidepanel-toast';
   toast.textContent = message;
-  
+
   const colors = {
     success: '#10b981',
     error: '#ef4444',
     info: '#3b82f6',
     warning: '#f59e0b'
   };
-  
+
   toast.style.cssText = `
     position: fixed;
     top: 20px;
@@ -1299,7 +1294,7 @@ function showToast(message, type = 'info') {
     font-weight: 500;
     animation: slideDown 0.3s ease-out;
   `;
-  
+
   const style = document.createElement('style');
   style.textContent = `
     @keyframes slideDown {
@@ -1313,14 +1308,14 @@ function showToast(message, type = 'info') {
       }
     }
   `;
-  
+
   if (!document.querySelector('style[data-toast-styles]')) {
     style.setAttribute('data-toast-styles', 'true');
     document.head.appendChild(style);
   }
-  
+
   document.body.appendChild(toast);
-  
+
   // Auto-dismiss after 3 seconds
   setTimeout(() => {
     toast.style.animation = 'slideDown 0.3s ease-out reverse';
@@ -1352,4 +1347,3 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 });
-
