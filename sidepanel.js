@@ -385,6 +385,34 @@ function showScenarioToolbar(scenario) {
   }
 }
 
+// 在 UI 中展示已导入的 Name（可被用户关闭）
+function showImportedName(name) {
+  if (!name) return;
+  // 移除旧的 banner
+  const old = document.getElementById('imported-name-banner');
+  if (old) old.remove();
+
+  const banner = document.createElement('div');
+  banner.id = 'imported-name-banner';
+  banner.style.cssText = `
+    background: #eef2ff; border: 1px solid #c7d2fe; padding: 8px 12px; border-radius: 8px; margin: 12px; display:flex; justify-content:space-between; align-items:center; gap:12px;
+  `;
+  banner.innerHTML = `
+    <div style="font-size:14px;color:#1e293b">Imported Content: <strong>${escapeHtml(name)}</strong></div>
+    <button id="imported-name-close" style="background:none;border:none;cursor:pointer;color:#6b7280">✕</button>
+  `;
+
+  const container = document.querySelector('.chat-panel');
+  if (container) {
+    // Insert at top of chat panel, before chatHeader
+    container.insertBefore(banner, container.firstChild);
+    const closeBtn = document.getElementById('imported-name-close');
+    if (closeBtn) closeBtn.addEventListener('click', () => banner.remove());
+    // auto dismiss after 10s
+    setTimeout(() => banner.remove(), 10000);
+  }
+}
+
 function closeScenarioToolbar() {
   elements.scenarioToolbar.classList.remove('active');
 }
@@ -858,6 +886,8 @@ async function importLinkedInProfile() {
         setTimeout(() => {
           activateScenario(recommendation.recommended);
         }, 500);
+        // Show imported name banner in UI
+        showImportedName(chat.targetName);
       }
     } else {
       throw new Error(response?.message || '导入失败');
