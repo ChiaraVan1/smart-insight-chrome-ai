@@ -951,8 +951,48 @@ function extractCompanyNameFromUrl(url) {
   }
 }
 
+// 改：静默抓取当前登录用户的 LinkedIn Profile（仅首次执行）
+async function autoFetchMyProfile() {
+  try {
+    const myUrl = "https://www.linkedin.com/in/me/";
+    console.log("[BG] 准备静默抓取用户Profile:", myUrl);
+
+    // 打开隐藏标签页（不激活）
+    const tab = await chrome.tabs.create({ url: myUrl, active: false });
+
+    // 等待页面加载
+    await new Promise(r => setTimeout(r, 4000));
+
+    // 手动注入 content-script 以便抓取数据
+    await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      files: ["content-script.js"]
+    });
+
+    // 请求抓取
+    const response = await chrome.tabs.sendMessage(tab.id, {
+      action: 'SCRAPE_LINKEDIN_PROFILE'
+    });
+
+    if (response.status === 'SUCCESS') {
+      await chrome.storage.local.set({ myProfile: response.data });
+      console.log("[BG] 已缓存 myProfile 数据");
+      console.log("[BG] MyProfile Data:", response.data);
+    } else {
+      console.warn("[BG] ⚠️ 抓取 myProfile 失败:", response.message);
+    }
+
+    // 关闭隐藏标签
+    setTimeout(() => chrome.tabs.remove(tab.id), 2000);
+  } catch (err) {
+    console.error("[BG] ❌ autoFetchMyProfile 失败:", err);
+  }
+}
+
+
 // 3. 启动所有服务Initialization
 initializeServices();
+autoFetchMyProfile();
 
 // 4. 监听扩展安装和更新事件
 chrome.runtime.onInstalled.addListener((details) => {
@@ -1062,7 +1102,7 @@ async function handleScenarioAdvice(request, sendResponse) {
     console.log(`🎯 生成 ${request.scenario} scenarios建议...`);
     console.log('📊 Target Data:', request.targetData);
     
-    const prompt = request.prompt || buildScenarioPrompt(request.scenario, request.targetData);
+    const prompt = request.prompt || await buildScenarioPrompt(request.scenario, request.targetData);
     console.log('📝 Generated Prompt:', prompt.substring(0, 200) + '...');
     
     const result = await callChromeAIPrompt(prompt);
@@ -1092,7 +1132,7 @@ async function handleChatMessage(request, sendResponse) {
     console.log('💬 处理聊天消息...');
     
     // Building包含上下文的 prompt
-    const prompt = buildChatPrompt(request.message, request.context, request.scenario, request.targetData);
+    const prompt = await buildChatPrompt(request.message, request.context, request.scenario, request.targetData);
     const result = await callChromeAIPrompt(prompt);
     
     sendResponse({
@@ -1197,7 +1237,11 @@ function buildScenarioPrompt(scenario, targetData) {
 }
 
 // Coffee Chat Prompt
-function buildCoffeeChatPrompt(targetData) {
+async function buildCoffeeChatPrompt(targetData) {
+  // 获取用户自己的Profile信息
+  const { myProfile } = await chrome.storage.local.get('myProfile');
+  const myInfo = myProfile?.basic_info || {};
+
   const name = targetData?.basic_info?.name || targetData?.name || 'the person';
   const headline = targetData?.basic_info?.headline || targetData?.headline || '';
   const currentCompany = targetData?.current_position?.company || targetData?.company || '';
@@ -1218,7 +1262,11 @@ function buildCoffeeChatPrompt(targetData) {
 
   return `IMPORTANT: RESPOND WITH PLAIN TEXT ONLY. DO NOT GENERATE HTML CODE OR MARKUP.
 
-You are a career networking expert. Generate personalized Coffee Chat questions.
+You are a career networking expert. Generate personalized Coffee Chat question from the user's perspective.
+
+MY PROFILE:
+Name: ${myInfo.name || 'Not provided'}
+Headline: ${myInfo.headline || 'Not provided'}
 
 TARGET INFORMATION:
 Name: ${name}
@@ -1252,7 +1300,7 @@ Generate 3 specific, personalized questions for each section. Use EXACTLY this f
 • Referral requests (first meeting)
 • Personal questions
 
-📝 Follow-up Email:
+📝 Follow-up Emai (written from ${myInfo.name || '[Your Name]'}’s perspective):
 
 Subject: Thank you for the Coffee Chat
 
@@ -1265,7 +1313,7 @@ Add 1-2 sentences referencing specific topics discussed.
 Looking forward to staying in touch!
 
 Best,
-[Your Name]
+${myInfo.name || '[Your Name]'}
 
 CRITICAL FORMATTING RULES:
 - Output PLAIN TEXT ONLY - NO HTML, NO CODE, NO MARKUP
@@ -1281,7 +1329,11 @@ CRITICAL FORMATTING RULES:
 }
 
 // Networking Prompt
-function buildNetworkingPrompt(targetData) {
+async function buildNetworkingPrompt(targetData) {
+  // 改：我Profile
+  const { myProfile } = await chrome.storage.local.get('myProfile');
+  const myInfo = myProfile?.basic_info || {};
+
   const name = targetData?.basic_info?.name || targetData?.name || 'the person';
   const headline = targetData?.basic_info?.headline || targetData?.headline || '';
   const currentCompany = targetData?.current_position?.company || targetData?.company || '';
@@ -1290,18 +1342,23 @@ function buildNetworkingPrompt(targetData) {
   
   return `IMPORTANT: RESPOND WITH PLAIN TEXT ONLY. DO NOT GENERATE HTML CODE OR MARKUP.
 
-You are a career fair networking expert. Generate quick networking strategy.
+You are a career fair networking expert. Generate a quick networking strategy from the user's perspective.
+
+MY PROFILE:
+Name: ${myInfo.name || 'Not provided'}
+Headline: ${myInfo.headline || 'Not provided'}
 
 TARGET INFORMATION:
 Name: ${name}
 Current Role: ${headline} at ${currentCompany}
 ${latestCompany && latestCompany !== currentCompany ? `Previous Role: ${latestTitle} at ${latestCompany}` : ''}
 
-Generate content for a 2-10 minute Career Fair interaction. Use EXACTLY this format:
+Generate specific, actionable content for a 2-10 minute Career Fair interaction. Use EXACTLY this format:
 
 ━━━ Elevator Pitch (2 min) ━━━
 
-• Write a concise 150-word elevator pitch mentioning your background, why interested in ${currentCompany}, and what role you're targeting
+• Write a concise 150-word elevator pitch mentioning your background (${myInfo.headline || 'your background'}), 
+  why interested in ${currentCompany}, and what role you're targeting.
 
 ━━━ Smart Questions ━━━
 
@@ -1315,36 +1372,43 @@ Generate content for a 2-10 minute Career Fair interaction. Use EXACTLY this for
 • When matched: How to exchange contact when your experience aligns
 • Time limited: Quick way to get contact when others are waiting
 
-━━━ Follow-up Email ━━━
+⚠️ Avoid:
+• Asking directly for referrals
+• Overly personal or unrelated questions
+• Vague or generic company questions
+
+📝 Follow-up Email (written from ${myInfo.name || '[Your Name]'}’s perspective):
 
 Subject: Great meeting you at the Career Fair
 
 Dear ${name},
 
-Thank you for taking the time to speak with me about ${currentCompany}. Your insights about ${latestTitle ? `the ${latestTitle} role` : 'the company'} were very valuable.
+Thank you for taking the time to speak with me about ${currentCompany}. 
+As a ${myInfo.headline || 'professional'}, I found your insights about ${latestTitle || 'your team'} and ${currentCompany}'s work particularly valuable.
 
 Add 1-2 sentences about specific topics discussed.
 
 Looking forward to staying in touch!
 
 Best,
-[Your Name]
+${myInfo.name || '[Your Name]'}
 
 CRITICAL FORMATTING RULES:
 - Output PLAIN TEXT ONLY - NO HTML, NO CODE, NO MARKUP
 - DO NOT use asterisks, brackets, or any markdown formatting
 - DO NOT generate HTML tags like <div>, <style>, or any code
-- Each item MUST start with • on a new line
-- Write complete sentences, not instructions
-- Be specific to ${currentCompany} and ${name}'s role
-- Keep it concise and actionable
+- Each question MUST start with • on a new line
+- Write questions as complete sentences in quotes
+- Questions should reference REAL data from both profiles above
+- Be specific and natural, not generic
 - Output in English only
-- DO NOT include labels like "Question 1:" - write the actual content directly
+- DO NOT include labels like "Question 1:" or "based on" - write the actual questions directly
 - This is a TEXT-ONLY response, not HTML or code`;
 }
 
+
 // Building Chat Prompt
-function buildChatPrompt(message, context, scenario, targetData) {
+async function buildChatPrompt(message, context, scenario, targetData) {
   let systemPrompt = 'You are a professional career networking assistant. Always respond in English.';
   
   if (scenario === 'coffee-chat') {
@@ -1352,7 +1416,15 @@ function buildChatPrompt(message, context, scenario, targetData) {
   } else if (scenario === 'networking') {
     systemPrompt += ' Current scenario: Networking (2-10 minute quick interaction). Provide concise, practical advice.';
   }
-  
+
+  // 改：我 Profile
+  const { myProfile } = await chrome.storage.local.get('myProfile');
+  const myInfo = myProfile?.basic_info || {};
+  let myProfileInfo = '';
+  if (myInfo.name || myInfo.headline) {
+    myProfileInfo = `\n\n[My Profile]\nName: ${myInfo.name || 'Unknown'}\nHeadline: ${myInfo.headline || 'Unknown'}\n`;
+  }
+
   // Add Target Person Information
   let contextInfo = '';
   if (targetData) {
@@ -1371,5 +1443,5 @@ function buildChatPrompt(message, context, scenario, targetData) {
     });
   }
   
-  return `${systemPrompt}${contextInfo}${conversationHistory}\n\n[Current Question]\n${message}\n\nProvide a professional, practical response in English. Be direct and address the user's specific request.\n\nIMPORTANT: Output PLAIN TEXT ONLY - NO HTML, NO CODE, NO MARKUP. Do not generate HTML tags or any code.`;
+  return `${systemPrompt}${myProfileInfo}${contextInfo}${conversationHistory}\n\n[Current Question]\n${message}\n\nProvide a professional, practical response in English. Be direct and address the user's specific request.\n\nIMPORTANT: Output PLAIN TEXT ONLY - NO HTML, NO CODE, NO MARKUP. Do not generate HTML tags or any code.`;
 }
