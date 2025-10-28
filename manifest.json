@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "SmartInsight Career Assistant",
+  "name": "BrewLink",
   "version": "3.0.0",
   "description": " Chrome Built-in AI powered career assistant. 100% private LinkedIn analysis with Gemini Nano. Zero cost, offline-capable, instant insights.",
 
@@ -18,7 +18,7 @@
   ],
 
   "action": {
-    "default_title": "SmartInsight - 对话模式"
+    "default_title": "BrewLink - 对话模式"
   },
   
   "side_panel": {
