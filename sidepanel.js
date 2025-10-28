@@ -63,7 +63,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function initializeApp() {
-  console.log('🚀 SmartInsight Chat Initialization...');
+  console.log('🚀 SmartInsight BrewLink Chat Initialization...');
 
   // Listen for model download progress
   chrome.runtime.onMessage.addListener((message) => {
