@@ -105,15 +105,15 @@
 ## 📸 Screenshots
 
 ### Chat Interface
-![SmartInsight Chat Interface](https://via.placeholder.com/800x500?text=Chat+Interface+Screenshot)
+![SmartInsight Chat Interface](./images/Chat%20Interface.png)
 *Clean conversational UI with scenario toolbar and chat history panel*
 
 ### Smart Detection
-![LinkedIn Profile Detection](https://via.placeholder.com/800x200?text=Smart+Detection+Toast)
+![LinkedIn Profile Detection](./images/Smart%20Detection.png)
 *Automatic toast prompts when visiting LinkedIn profiles*
 
 ### Model Download Progress
-![Model Download](https://via.placeholder.com/400x200?text=Model+Download+Progress)
+![Model Download](./images/Model%20Download%20Progress.png)
 *Real-time progress updates during first-time model download*
 
 ---
@@ -782,10 +782,6 @@ npm run demo
 - No background sync or telemetry
 
 ---
-
-## 🧪 Testing
-
-See [TESTING_GUIDE.md](TESTING_GUIDE.md) for comprehensive testing instructions.
 
 ### Quick Test
 
