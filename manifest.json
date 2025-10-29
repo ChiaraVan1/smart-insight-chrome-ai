@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "BrewLink",
+  "name": "BrewLink - AI-Powered Career Assistant",
   "version": "3.0.0",
   "description": " Chrome Built-in AI powered career assistant. 100% private LinkedIn analysis with Gemini Nano. Zero cost, offline-capable, instant insights.",
   "icons": {
